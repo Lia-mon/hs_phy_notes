@@ -1,0 +1,296 @@
+:root {
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --ink: #1c2333;
+  --muted: #6b7280;
+  --accent: #0072B2; /* Okabe-Ito blue */
+  --border: #e2e6ee;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+header { padding: 20px 28px 8px; }
+header h1 { margin: 0 0 4px; font-size: 1.5rem; }
+.subtitle { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 920px) minmax(300px, 360px);
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 28px 28px;
+  align-items: start;
+}
+.left-col { min-width: 0; }
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.card h2 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* ---- plots ---- */
+.plots-card { padding: 10px 14px; }
+#timeline { height: 64px; cursor: default; }
+.plot-row { height: 230px; }
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* ---- legend ---- */
+.legend-card { padding: 12px 16px; }
+.legend-objects { margin-bottom: 8px; }
+.legend-item {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--ink);
+  padding: 2px 0;
+}
+.lg {
+  display: inline-block;
+  width: 26px;
+  border-top: 3px solid #0072B2;
+  vertical-align: middle;
+  margin-right: 9px;
+  flex: none;
+}
+.lg-dashed { border-top-style: dashed; }
+.lg-v {
+  width: 0;
+  height: 14px;
+  border-top: none;
+  border-left: 2px dashed #8b93a7;
+}
+.lg-arrow { border-top-color: #3a4152; }
+
+/* ---- t1 readout bar (top of the plot area) ---- */
+.t1-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 22px;
+  padding-bottom: 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed var(--border);
+}
+.t1-title {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.t1-title b { color: var(--ink); }
+
+/* ---- track (+ animation) ---- */
+.track-card { padding: 12px 16px; }
+.track-card canvas { height: 150px; }
+.track-anim { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+#btn-reset { margin-top: 0; }
+
+/* ---- controls ---- */
+.controls .card { margin-bottom: 14px; }
+
+.param-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+.param-grid label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-width: 0;
+}
+.param-grid input {
+  margin-top: 3px;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+.param-grid input:focus { outline: none; border-color: var(--accent); }
+.param-grid input[type="range"] {
+  border: none;
+  padding: 0;
+  margin-top: 10px;
+  accent-color: var(--accent);
+}
+.t1-val {
+  font-size: 0.85rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.hint { margin: 0 0 10px; font-size: 0.8rem; color: var(--muted); }
+
+/* ---- share card ---- */
+#btn-export, #btn-import { width: 100%; margin-bottom: 8px; }
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  font: 0.72rem/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f6f8fb;
+  color: var(--ink);
+  resize: vertical;
+}
+textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+#out-code { background: #eef2f8; }
+
+/* objects */
+#objects-container { display: flex; flex-direction: column; gap: 12px; }
+.object-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fafbfe;
+}
+.object-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+}
+.chip {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  flex: none;
+}
+
+/* intervals table */
+.intervals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+.intervals-table th {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0 3px 4px;
+  text-align: left;
+}
+.intervals-table td { padding: 2px 3px; }
+.intervals-table input {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 4px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--ink);
+}
+.intervals-table input:focus { outline: none; border-color: var(--accent); }
+.intervals-table input[disabled] {
+  background: #eef1f7;
+  color: var(--muted);
+}
+
+.btn-remove {
+  padding: 2px 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.btn-remove:hover:not(:disabled) { color: #D55E00; filter: none; }
+.btn-remove:disabled { opacity: 0.35; cursor: default; }
+
+.btn-small, .btn-add {
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  background: var(--accent);
+}
+.btn-add { margin-top: 10px; }
+
+.stats { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.stat-line {
+  font-size: 0.8rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.stat-line b { color: var(--muted); font-weight: 600; }
+
+/* readouts (horizontal bar at the top of the plot area) */
+.readout-line {
+  display: flex;
+  align-items: center;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+.readout-line b { margin-right: 2px; }
+
+/* display options */
+.chk-row { display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.chk input { accent-color: var(--accent); }
+
+/* ---- animation ---- */
+.anim-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.anim-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.anim-row input[type="range"] { accent-color: var(--accent); width: 90px; }
+#out-speed { min-width: 2.2em; font-size: 0.85rem; }
+#btn-reset { background: var(--muted); align-self: flex-start; }
+
+button {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.08); }

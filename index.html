@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Linear Motion Lab</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Linear Motion Lab</h1>
+    <p class="subtitle">Constant velocity &amp; constant acceleration — drag the marker, shape the intervals, press play.</p>
+  </header>
+
+  <main>
+    <!-- Left column: plots, legend, track, objects, animation -->
+    <div class="left-col">
+      <section class="plots-card card">
+        <div class="t1-bar">
+          <span class="t1-title">At time t₁ — <b id="out-t1">5 s</b></span>
+          <div id="readouts"></div>
+        </div>
+        <canvas id="timeline" class="timeline"></canvas>
+        <div class="plot-row" id="row-x"><canvas id="plot-x"></canvas></div>
+        <div class="plot-row" id="row-u"><canvas id="plot-u"></canvas></div>
+        <div class="plot-row" id="row-a"><canvas id="plot-a"></canvas></div>
+      </section>
+
+      <!-- Legend -->
+      <section class="card legend-card" id="legend-card">
+        <h2>Legend</h2>
+        <div id="legend-objects" class="legend-objects"></div>
+        <div class="legend-items">
+          <div class="legend-item"><span class="lg lg-dashed" style="border-top-color:#8b93a7"></span>special values (start / end of each interval)</div>
+          <div class="legend-item"><span class="lg lg-v lg-dashed"></span>interval boundaries</div>
+          <div class="legend-item"><span class="lg lg-v lg-dashed" style="border-left-color:#1c2333"></span>current time t₁</div>
+          <div class="legend-item"><span class="lg lg-arrow"></span>velocity (on the track)</div>
+        </div>
+      </section>
+
+      <!-- Track + animation -->
+      <section class="card track-card" id="track-card">
+        <h2>Real movement on a line</h2>
+        <canvas id="track"></canvas>
+        <div class="track-anim">
+          <div class="anim-row">
+            <button id="btn-play" class="btn-play">▶ Play</button>
+            <label>Speed
+              <input id="in-speed" type="range" min="0.25" max="3" step="0.25" value="1" />
+            </label>
+            <span id="out-speed">1×</span>
+          </div>
+          <button id="btn-reset" class="btn-reset">Reset</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right column: controls -->
+    <aside class="controls">
+      <div class="card">
+        <h2>Global</h2>
+        <div class="param-grid">
+          <label>t₀ (s)
+            <input id="in-t0" type="number" step="0.5" value="0" />
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Objects</h2>
+        <p class="hint">Each object has its own studied intervals (Δt, x, v, a; a = 0 gives constant velocity). The initial x of every interval after the first is fixed by continuity with the previous one; the velocity v may change abruptly at a boundary. Change the durations with the Δt inputs.</p>
+        <div id="objects-container"></div>
+        <button id="btn-add-object" class="btn-add">+ Add object</button>
+      </div>
+
+      <div class="card">
+        <h2>Display</h2>
+        <div class="chk-row">
+          <label class="chk"><input type="checkbox" id="show-x" checked /> x(t)</label>
+          <label class="chk"><input type="checkbox" id="show-u" checked /> u(t)</label>
+          <label class="chk"><input type="checkbox" id="show-a" checked /> a(t)</label>
+        </div>
+        <div class="chk-row">
+          <label class="chk"><input type="checkbox" id="show-legend" /> Legend</label>
+          <label class="chk"><input type="checkbox" id="show-track" /> Real movement on a line</label>
+        </div>
+        <label class="chk"><input type="checkbox" id="in-axis-zero" checked /> Draw t-axis at y = 0</label>
+      </div>
+
+      <div class="card">
+        <h2>Share</h2>
+        <p class="hint">The scenario is saved automatically in this browser. Export a code to share it, or paste one below to import it.</p>
+        <button id="btn-export" class="btn-play">Export code</button>
+        <textarea id="out-code" readonly rows="3" placeholder="…"></textarea>
+        <textarea id="in-code" rows="3" placeholder="Paste a scenario code…"></textarea>
+        <button id="btn-import" class="btn-reset">Import</button>
+      </div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

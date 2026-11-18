@@ -313,16 +313,14 @@ function drawPlot(canvas, yLabel, series) {
       const total = s.tEnd - state.t0;
       ranges.forEach((rg, ri) => {
         const N = Math.max(2, Math.round(300 * (rg[1] - rg[0]) / total));
-        if (ri > 0) {
-          // vertical connector at the boundary
-          ctx.beginPath();
-          ctx.moveTo(xOf(rg[0]), yVal(s.fn(rg[0] - 1e-6)));
-          ctx.lineTo(xOf(rg[0]), yVal(s.fn(rg[0])));
-          ctx.stroke();
-        }
         ctx.beginPath();
         for (let i = 0; i <= N; i++) {
-          const t = rg[0] + ((rg[1] - rg[0]) * i) / N;
+          // first sample of a non-initial interval sits just after the boundary
+          // so it uses this interval's (possibly jumped) value; the jump itself
+          // is left unconnected (no vertical line)
+          const t = ri === 0
+            ? rg[0] + ((rg[1] - rg[0]) * i) / N
+            : rg[0] + 1e-6 + ((rg[1] - rg[0] - 1e-6) * i) / N;
           const px = xOf(t), py = yVal(s.fn(t));
           i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
         }

@@ -73,6 +73,13 @@ canvas { display: block; width: 100%; height: 100%; }
 #timeline { height: 64px; touch-action: pan-y; cursor: default; border-radius: var(--radius-sm); }
 #timeline:focus-visible { outline: 3px solid var(--accent); outline-offset: -2px; }
 
+/* dashed rule separating the timeline from the plots below it */
+.timeline-row {
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
+
 .plot-row { width: 100%; aspect-ratio: 2.1; min-height: 220px; max-height: 460px; }
 
 /* ---- t₁ readout bar (top of the plot area) ---- */
@@ -90,9 +97,13 @@ canvas { display: block; width: 100%; height: 100%; }
   text-transform: uppercase;
   letter-spacing: .04em;
   color: var(--muted);
+  white-space: nowrap;   /* its value changes width as t₁ moves */
 }
 .t1-title b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .t1-reset { margin-left: auto; flex: none; }
+/* the readouts take whatever room is left instead of shoving the button onto
+   a new line; if they run out of room they wrap in place (see readoutReserve) */
+#readouts { flex: 1 1 0; min-width: 0; }
 
 .readout-line {
   display: flex;
@@ -296,12 +307,41 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
   .track-card canvas { height: 170px; }
 }
 
+/* ------------------------------------ squeezed two-column width (~1 inch less
+   than a laptop): the plots card sits next to the control column and there is
+   no room for heading + readouts + button on one line, so the bar stacks into
+   its slots here too. Without this every readout reserves a second line and
+   the bar becomes twice as tall as it needs to be. */
+@media (min-width: 961px) and (max-width: 1060px) {
+  .t1-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px 14px;
+  }
+  .t1-title { grid-area: 1 / 1; }
+  .t1-reset { grid-area: 1 / 2; justify-self: end; margin-left: 0; }
+  #readouts { grid-area: 2 / 1 / 3 / 3; }
+}
+
 /* ------------------------------------------------- narrow screens (phones) */
 @media (max-width: 700px) {
   .card { padding: 12px 12px; margin-bottom: 12px; }
   .plots-card { padding: 8px 10px; }
   .plot-row { min-height: 190px; }
-  .t1-bar { gap: 2px 14px; padding-bottom: 8px; }
+  /* Pin every item of the t₁ bar to a fixed slot. As a wrapping flexbox the
+     "Back to t₀" button hopped between lines whenever a readout grew by one
+     digit, which shoved the timeline (and everything below it) up and down. */
+  .t1-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px 14px;
+    padding-bottom: 8px;
+  }
+  .t1-title { grid-area: 1 / 1; }
+  .t1-reset { grid-area: 1 / 2; justify-self: end; margin-left: 0; }
+  #readouts { grid-area: 2 / 1 / 3 / 3; }
   .readout-line { font-size: .82rem; }
 }
 

@@ -27,8 +27,10 @@
         </div>
 
         <!-- Timeline: the one and only way to move t₁ (drag, or focus + arrow keys) -->
-        <canvas id="timeline" class="timeline" role="slider" tabindex="0"
-                aria-label="Current time t₁ — drag horizontally, or use the arrow keys"></canvas>
+        <div class="timeline-row">
+          <canvas id="timeline" class="timeline" role="slider" tabindex="0"
+                  aria-label="Current time t₁ — drag horizontally, or use the arrow keys"></canvas>
+        </div>
 
         <div class="plot-row" id="row-x"><canvas id="plot-x" role="img" aria-label="Position plot x of t"></canvas></div>
         <div class="plot-row" id="row-u"><canvas id="plot-u" role="img" aria-label="Velocity plot u of t"></canvas></div>

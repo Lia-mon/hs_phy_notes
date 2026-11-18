@@ -377,7 +377,9 @@ function drawTimeline(canvas) {
   const coarse = COARSE.matches;
   const y = h / 2;
   const R = coarse ? 9 : 7;              // knob radius (touch needs more grip)
-  const labY = y + (coarse ? 26 : 20);   // shared baseline for tick / boundary labels
+  const labY = y + (coarse ? 26 : 20);   // tick / boundary values, below the line
+  const italicY = y - (coarse ? 19 : 10);// t₀, t₁, t_f band
+  const dtY = y - (coarse ? 30 : 22);    // Δt band, above the italic one
   const xOf = (t) => timeToX(t, w);
 
   // main line — same horizontal extent as the plots' t-axis
@@ -398,9 +400,9 @@ function drawTimeline(canvas) {
   }
   ctx.font = `italic ${coarse ? 14 : 13}px Georgia, serif`;
   ctx.textAlign = "left";
-  ctx.fillText("t₀", xOf(state.t0) - 4, y - 12);
+  ctx.fillText("t₀", xOf(state.t0) - 4, italicY);
   ctx.textAlign = "right";
-  ctx.fillText("t_f", xOf(tEnd()) + 4, y - 12);
+  ctx.fillText("t_f", xOf(tEnd()) + 4, italicY);
   ctx.textAlign = "start";
 
   // Δt labels (only unambiguous when there is a single object)
@@ -411,8 +413,10 @@ function drawTimeline(canvas) {
     ctx.textAlign = "center";
     bounds.forEach((b, i) => {
       const cx = (xOf(b.start) + xOf(b.end)) / 2;
-      if (Math.abs(cx - xOf(state.t1)) < (coarse ? 42 : 34)) return;  // keep clear of t₁
-      ctx.fillText("Δt" + (i + 1), cx, y - 8);
+      // Δt labels live on their own band, so the knob never has to hide one
+      if (bounds.some((o, j) => j !== i &&
+          Math.abs((xOf(o.start) + xOf(o.end)) / 2 - cx) < (coarse ? 34 : 28))) return;
+      ctx.fillText("Δt" + (i + 1), cx, dtY);
     });
     ctx.textAlign = "start";
   }
@@ -464,7 +468,7 @@ function drawTimeline(canvas) {
   if (lx + t1W / 2 > tfStart - 8) { lx = Math.min(mx - 12, tfStart - 10); align = "right"; }
   if (lx - t1W / 2 < t0End + 8) { lx = Math.max(mx + 12, t0End + 10); align = "left"; }
   ctx.textAlign = align;
-  ctx.fillText("t₁", lx, y - 12);
+  ctx.fillText("t₁", lx, italicY);
   ctx.textAlign = "start";
 
   // ticks (a label is skipped where a boundary value already sits)
@@ -584,12 +588,108 @@ function drawTrack(canvas) {
 // ---------------------------------------------------------------------------
 // Readouts
 // ---------------------------------------------------------------------------
+// Widest string fmt() could ever show for a value that keeps changing: a minus
+// if it ever goes negative, all the integer digits of its biggest magnitude and
+// the two decimals fmt() may add.
+function widestChanging(mag, neg) {
+  const digits = Math.min(22, String(Math.floor(mag)).length);
+  return `${neg ? "-" : ""}${"9".repeat(digits)},99`;
+}
+
+// Widest text each readout field can become over the object's whole motion. A
+// field that never changes prints one exact number; a moving one is bounded by
+// its extremes - interval endpoints plus the u = 0 turning point of x.
+function widestStrings(obj) {
+  const best = { x: "0", u: "0", a: "0" };
+  const keep = (key, s) => { if (s.length > best[key].length) best[key] = s; };
+  for (const iv of obj.intervals) {
+    keep("a", fmt(iv.a));                       // a is constant inside an interval
+
+    const uEnd = iv.v + iv.a * iv.dt;
+    if (iv.a === 0) keep("u", fmt(iv.v));       // u never moves here
+    else keep("u", widestChanging(Math.max(Math.abs(iv.v), Math.abs(uEnd)), iv.v < 0 || uEnd < 0));
+
+    const xEnd = iv.x + iv.v * iv.dt + 0.5 * iv.a * iv.dt * iv.dt;
+    if (iv.a === 0 && iv.v === 0) keep("x", fmt(iv.x));   // it stands still here
+    else {
+      const xs = [iv.x, xEnd];
+      if (iv.a !== 0) {
+        const tv = -iv.v / iv.a;                 // x turns around where u = 0
+        if (tv > 0 && tv < iv.dt) xs.push(iv.x + iv.v * tv + 0.5 * iv.a * tv * tv);
+      }
+      keep("x", widestChanging(Math.max(...xs.map(Math.abs)), xs.some((v) => v < 0)));
+    }
+  }
+  keep("a", "0");                               // and after the last interval a = 0
+  return best;
+}
+
+// t₁ may be any time between t₀ and t_end, so its label is bounded by the
+// larger of those two magnitudes.
+function widestTime() {
+  return widestChanging(Math.max(Math.abs(state.t0), Math.abs(tEnd())), state.t0 < 0) + " s";
+}
+
+// One hidden element, laid out with the real styles, says how wide or tall the
+// widest possible text is.
+let barProbe = null;
+function probeBox(cls, html, width) {
+  if (!barProbe) {
+    barProbe = document.createElement("div");
+    barProbe.id = "bar-probe";
+    barProbe.setAttribute("aria-hidden", "true");
+    document.body.appendChild(barProbe);
+  }
+  barProbe.className = cls;
+  barProbe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden";
+  if (width !== undefined) barProbe.style.width = `${width}px`;
+  barProbe.innerHTML = html;
+  return barProbe.getBoundingClientRect();
+}
+
+// The t₁ value inside the heading changes width while you drag. Giving the
+// heading the width of its widest possible value stops the row under it from
+// sliding sideways, which is what made the readouts wrap on and off.
+let titleSig = "";
+function stabiliseTitle() {
+  const sig = [state.t0, state.objects.map(objDuration).join(",")].join("|");
+  if (sig === titleSig) return;
+  titleSig = sig;
+  const w = probeBox("t1-title", `At time t₁ — <b>${widestTime()}</b>`).width;
+  document.querySelector(".t1-title").style.minWidth = `${Math.ceil(w)}px`;
+}
+
+// A readout line wraps once its widest possible text no longer fits. Measuring
+// that (not the current text) lets us reserve the height up front, so the bar
+// above the timeline keeps one height while t₁ is dragged.
+let wrapSig = "";
+let wrapHeights = [];
+function readoutReserve(el) {
+  const avail = el.clientWidth;
+  const sig = [avail, state.t0, state.objects.map((o) =>
+    o.intervals.map((iv) => `${iv.dt},${iv.x},${iv.v},${iv.a}`).join(";")).join("&")].join("|");
+  if (sig === wrapSig) return wrapHeights;
+  wrapSig = sig;
+  // one line of the same markup gives the line height, then the widest text
+  const lineHeight = probeBox("readout-line", `<span class="chip"></span><b>A</b> x = 0 m`, avail).height;
+  wrapHeights = state.objects.map((obj) => {
+    const w = widestStrings(obj);
+    const h = probeBox(
+      "readout-line",
+      `<span class="chip"></span>` +
+      `<b>${obj.name}</b> x = ${w.x} m · u = ${w.u} m/s · a = ${w.a} m/s²`,
+      avail).height;
+    // the probe wraps exactly like the real row, so its height is the reserve
+    return h > lineHeight + 0.5 ? Math.ceil(h) : 0;
+  });
+  return wrapHeights;
+}
 
 function updateReadouts() {
   document.getElementById("out-t1").textContent = `${fmt(state.t1)} s`;
   const el = document.getElementById("readouts");
   el.innerHTML = "";
-  state.objects.forEach((obj, i) => {
+  const rows = state.objects.map((obj, i) => {
     const k = kinematics(obj, state.t1);
     const row = document.createElement("div");
     row.className = "readout-line";
@@ -597,7 +697,12 @@ function updateReadouts() {
       `<span class="chip" style="background:${COLORS[i]}"></span>` +
       `<b>${obj.name}</b> x = ${fmt(k.x)} m · u = ${fmt(k.u)} m/s · a = ${fmt(k.a)} m/s²`;
     el.appendChild(row);
+    return row;
   });
+  // fix the heading's width first, then see what room the readouts keep
+  stabiliseTitle();
+  const reserve = readoutReserve(el);
+  rows.forEach((row, i) => { if (reserve[i]) row.style.minHeight = `${reserve[i]}px`; });
   syncTimelineAria();
 }
 

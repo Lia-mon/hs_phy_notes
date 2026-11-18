@@ -289,23 +289,17 @@ function drawPlot(canvas, yLabel, series) {
     ctx.strokeStyle = s.color;
     ctx.lineWidth = 2;
     if (s.stepSegs) {
-      // piecewise-constant (acceleration): flat segments + vertical jumps
+      // piecewise-constant (acceleration): flat segments, jumps left open
+      // (no vertical lines), same convention as the velocity plot
       for (const sg of s.stepSegs) {
         ctx.beginPath();
         ctx.moveTo(xOf(sg.s), yVal(sg.y));
         ctx.lineTo(xOf(sg.e), yVal(sg.y));
         ctx.stroke();
       }
-      ctx.lineWidth = 1;
-      for (let i = 1; i < s.stepSegs.length; i++) {
-        ctx.beginPath();
-        ctx.moveTo(xOf(s.stepSegs[i - 1].e), yVal(s.stepSegs[i - 1].y));
-        ctx.lineTo(xOf(s.stepSegs[i].s), yVal(s.stepSegs[i].y));
-        ctx.stroke();
-      }
     } else {
-      // sample each interval separately so that jumps at boundaries are
-      // drawn as exactly vertical segments (not slanted sampling artifacts)
+      // sample each interval separately so that a jump at a boundary
+      // starts at this interval's value (jump left open, no vertical line)
       const bounds = s.bounds || [];
       const ranges = bounds.length
         ? bounds.map((b) => [b.start, b.end])

@@ -20,7 +20,7 @@ const SUP = ["", "ᵃ", "ᵇ", "ᶜ", "ᵈ"];
 const INK = "#1c2333";   // timeline knob
 const GRAY = "#8b93a7"; // interval boundaries and t1, dashed verticals
 const MUTE = "#5b6478";
-const PANELS = ["x", "u", "a", "legend", "track"];
+const PANELS = ["x", "u", "a", "track"];
 const COARSE = window.matchMedia("(pointer: coarse)");
 
 // the scenario the app falls back to (and what "Reset everything" restores)
@@ -28,7 +28,7 @@ const DEFAULT_STATE = {
   t0: 0,
   t1: 5,
   axisZero: true,
-  show: { x: true, u: true, a: true, legend: false, track: false },
+  show: { x: true, u: true, a: true, track: false },
   objects: [
     { name: "A", intervals: [{ dt: 5, x: 0, v: 4, a: 0 }, { dt: 5, x: 0, v: 4, a: 0 }] },
   ],
@@ -584,6 +584,7 @@ function drawTrack(canvas) {
 // ---------------------------------------------------------------------------
 // Readouts
 // ---------------------------------------------------------------------------
+
 function updateReadouts() {
   document.getElementById("out-t1").textContent = `${fmt(state.t1)} s`;
   const el = document.getElementById("readouts");
@@ -597,20 +598,12 @@ function updateReadouts() {
       `<b>${obj.name}</b> x = ${fmt(k.x)} m · u = ${fmt(k.u)} m/s · a = ${fmt(k.a)} m/s²`;
     el.appendChild(row);
   });
-  syncScrubber();
+  syncTimelineAria();
 }
 
-// keep the scrubber slider and the timeline's slider semantics in sync with t₁
-function syncScrubber() {
+// keep the timeline's slider semantics in sync with t₁
+function syncTimelineAria() {
   const hi = tEnd();
-  const span = hi - state.t0 || 1;
-  const step = Math.max(0.05, Math.round((span / 300) * 200) / 200);
-  setAttr(t1Range, "min", numStr(state.t0));
-  setAttr(t1Range, "max", numStr(hi));
-  setAttr(t1Range, "step", String(step));
-  if (Number(t1Range.value) !== state.t1) t1Range.value = String(state.t1);
-  document.getElementById("out-trange").textContent = `${fmt(state.t0, 1)} – ${fmt(hi, 1)} s`;
-
   setAttr(timelineCanvas, "aria-valuemin", numStr(state.t0));
   setAttr(timelineCanvas, "aria-valuemax", numStr(hi));
   setAttr(timelineCanvas, "aria-valuenow", numStr(state.t1));
@@ -786,18 +779,6 @@ function buildObjectsUI() {
   const full = state.objects.length >= MAX_OBJECTS;
   addObj.disabled = full;
   addObj.title = full ? `Up to ${MAX_OBJECTS} objects` : "";
-  buildLegend();
-}
-
-function buildLegend() {
-  const el = document.getElementById("legend-objects");
-  el.innerHTML = "";
-  state.objects.forEach((obj, i) => {
-    const d = document.createElement("div");
-    d.className = "legend-item";
-    d.innerHTML = `<span class="lg" style="border-top-color:${COLORS[i]}"></span>Object ${obj.name} — curve, dots and its special values`;
-    el.appendChild(d);
-  });
 }
 
 function onIntervalChange(obj, i, key, val) {
@@ -910,8 +891,7 @@ function scheduleRender() {
 // Panel visibility
 // ---------------------------------------------------------------------------
 function panelEl(kind) {
-  return kind === "legend" ? document.getElementById("legend-card")
-    : kind === "track" ? document.getElementById("track-card")
+  return kind === "track" ? document.getElementById("track-card")
     : document.getElementById("row-" + kind);
 }
 function applyVisibility() {
@@ -960,8 +940,7 @@ function sanitizeState(s) {
     t1: isFinite(s.t1) ? s.t1 : 5,
     axisZero: s.axisZero !== false,
     show: {
-      x: sh("x", true), u: sh("u", true), a: sh("a", true),
-      legend: sh("legend", false), track: sh("track", false),
+      x: sh("x", true), u: sh("u", true), a: sh("a", true), track: sh("track", false),
     },
     objects: [],
   };
@@ -999,7 +978,6 @@ function applyState(s) {
 // Interaction: dragging on the timeline
 // ---------------------------------------------------------------------------
 const timelineCanvas = document.getElementById("timeline");
-const t1Range = document.getElementById("in-t1");
 let draggingT1 = false;
 
 // landing close to t₀, an interval boundary or t_end snaps exactly onto it
@@ -1051,7 +1029,7 @@ function endDrag() {
 timelineCanvas.addEventListener("pointerup", endDrag);
 timelineCanvas.addEventListener("pointercancel", endDrag);
 
-// keyboard scrubbing — the canvas advertises role="slider"
+// keyboard nudging of t₁ — the canvas advertises role="slider"
 timelineCanvas.addEventListener("keydown", (e) => {
   const span = tEnd() - state.t0 || 1;
   const fine = Math.max(0.1, Math.round((span / 100) * 10) / 10);
@@ -1070,12 +1048,6 @@ timelineCanvas.addEventListener("keydown", (e) => {
   e.preventDefault();
   setT1(t, false);
 });
-
-t1Range.addEventListener("input", () => {
-  state.t1 = parseFloat(t1Range.value);
-  renderAll();
-});
-t1Range.addEventListener("change", scheduleSave);
 
 // ---------------------------------------------------------------------------
 // Inputs

@@ -13,11 +13,11 @@
 <body>
   <header>
     <h1>Linear Motion Lab</h1>
-    <p class="subtitle">Constant velocity &amp; constant acceleration — shape the intervals, then scrub the marker.</p>
+    <p class="subtitle">Constant velocity &amp; constant acceleration — shape the intervals, then drag the t₁ marker.</p>
   </header>
 
   <main>
-    <!-- Left column: plots, legend, track -->
+    <!-- Left column: plots and track -->
     <div class="left-col">
       <section class="plots-card card" aria-label="Motion plots">
         <div class="t1-bar">
@@ -26,31 +26,13 @@
           <button id="btn-reset" class="btn btn-ghost btn-sm t1-reset" title="Move t₁ back to t₀">Back to t₀</button>
         </div>
 
+        <!-- Timeline: the one and only way to move t₁ (drag, or focus + arrow keys) -->
         <canvas id="timeline" class="timeline" role="slider" tabindex="0"
                 aria-label="Current time t₁ — drag horizontally, or use the arrow keys"></canvas>
-
-        <!-- Scrubber: the touch/keyboard-friendly twin of the timeline marker -->
-        <div class="scrub">
-          <label class="sr-only" for="in-t1">Current time t₁, in seconds</label>
-          <input id="in-t1" type="range" aria-describedby="out-t1" />
-          <span class="scrub-range" id="out-trange">0 – 10 s</span>
-        </div>
 
         <div class="plot-row" id="row-x"><canvas id="plot-x" role="img" aria-label="Position plot x of t"></canvas></div>
         <div class="plot-row" id="row-u"><canvas id="plot-u" role="img" aria-label="Velocity plot u of t"></canvas></div>
         <div class="plot-row" id="row-a"><canvas id="plot-a" role="img" aria-label="Acceleration plot a of t"></canvas></div>
-      </section>
-
-      <!-- Legend -->
-      <section class="card legend-card" id="legend-card" aria-label="Legend">
-        <h2>Legend</h2>
-        <div id="legend-objects" class="legend-objects"></div>
-        <div class="legend-items">
-          <div class="legend-item"><span class="lg lg-dashed" style="border-top-color:#8b93a7"></span>special values (start / end of each interval)</div>
-          <div class="legend-item"><span class="lg lg-v lg-dashed"></span>interval boundaries and the current time t₁</div>
-          <div class="legend-item"><span class="lg lg-dot"></span>where t₁ meets each curve</div>
-          <div class="legend-item"><span class="lg lg-arrow"></span>velocity (on the track)</div>
-        </div>
       </section>
 
       <!-- Track (real movement on a line) -->
@@ -69,7 +51,7 @@
             <input id="in-t0" type="text" value="0" inputmode="decimal" autocomplete="off" spellcheck="false" />
           </label>
         </div>
-        <p class="note">t₀ shifts the whole scenario in time. The current time t₁ is set by dragging the black marker (or the slider above the plots).</p>
+        <p class="note">t₀ shifts the whole scenario in time. The current time t₁ is set by dragging the black marker on the timeline; focus the timeline and use the arrow keys to nudge it precisely.</p>
       </div>
 
       <div class="card">
@@ -87,7 +69,6 @@
           <label class="chk"><input type="checkbox" id="show-a" checked /> a(t)</label>
         </div>
         <div class="chk-row">
-          <label class="chk"><input type="checkbox" id="show-legend" /> Legend</label>
           <label class="chk"><input type="checkbox" id="show-track" /> Real movement on a line</label>
         </div>
         <label class="chk"><input type="checkbox" id="in-axis-zero" checked /> Draw t-axis at y = 0</label>

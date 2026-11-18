@@ -370,12 +370,12 @@ function drawTimeline(canvas) {
 
   const y = h / 2;
 
-  // main line
+  // main line — same horizontal extent as the plots' t-axis
   ctx.strokeStyle = "#3a4152";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(PAD.left, y);
-  ctx.lineTo(w - PAD.right, y);
+  ctx.moveTo(PAD.left - 4, y);
+  ctx.lineTo(w - PAD.right + 6, y);
   ctx.stroke();
   ctx.lineWidth = 1;
 
@@ -401,6 +401,8 @@ function drawTimeline(canvas) {
     ctx.textAlign = "center";
     bounds.forEach((b, i) => {
       const cx = (timeToX(b.start, w) + timeToX(b.end, w)) / 2;
+      // skip labels that would collide with the t₁ marker label
+      if (Math.abs(cx - timeToX(state.t1, w)) < 34) return;
       ctx.fillText("Δt" + (i + 1), cx, y - 8);
     });
     ctx.textAlign = "start";
@@ -437,8 +439,17 @@ function drawTimeline(canvas) {
   ctx.lineWidth = 1;
   ctx.fillStyle = INK;
   ctx.font = "italic 13px Georgia, serif";
-  ctx.textAlign = "center";
-  ctx.fillText("t = t₁", mx, y - 12);
+  // keep the t₁ label clear of the t₀ / t_f corner labels
+  const t1w = ctx.measureText("t = t₁").width;
+  const tfW = ctx.measureText("t = t_f").width;
+  const tfStart = timeToX(tEnd(), w) + 4 - tfW; // t_f label extends leftward
+  const t0x = timeToX(state.t0, w);
+  const t0End = t0x - 4 + ctx.measureText("t = t₀").width; // t0 label extends rightward
+  let lx = mx, align = "center";
+  if (lx + t1w / 2 > tfStart - 8) { lx = Math.min(mx - 10, tfStart - 10); align = "right"; }
+  if (lx - t1w / 2 < t0End + 8) { lx = Math.max(mx + 10, t0End + 8); align = "left"; }
+  ctx.textAlign = align;
+  ctx.fillText("t = t₁", lx, y - 12);
   ctx.textAlign = "start";
 
   // tick marks (labels skipped where a boundary value is shown)
@@ -986,11 +997,17 @@ const codeIn = document.getElementById("in-code");
 document.getElementById("btn-export").addEventListener("click", async () => {
   const code = btoa(unescape(encodeURIComponent(serializeState())));
   codeOut.value = code;
+  const btn = document.getElementById("btn-export");
+  let copied = false;
   try {
     await navigator.clipboard.writeText(code);
+    copied = true;
   } catch (e) {
     codeOut.select(); // user can copy manually
   }
+  const old = btn.textContent;
+  btn.textContent = copied ? "Copied ✓" : "Select & copy";
+  setTimeout(() => (btn.textContent = old), 1500);
 });
 
 document.getElementById("btn-import").addEventListener("click", () => {

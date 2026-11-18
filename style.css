@@ -17,7 +17,7 @@ body {
   color: var(--ink);
 }
 
-header { padding: 20px 28px 8px; }
+header { padding: 20px 28px 8px; max-width: 1352px; margin: 0 auto; }
 header h1 { margin: 0 0 4px; font-size: 1.5rem; }
 .subtitle { margin: 0; color: var(--muted); font-size: 0.95rem; }
 
@@ -28,6 +28,10 @@ main {
   gap: 16px;
   padding: 12px 28px 28px;
   align-items: start;
+}
+@media (min-width: 1700px) {
+  main { grid-template-columns: minmax(0, 1240px) minmax(300px, 380px); }
+  header { max-width: 1636px; }
 }
 .left-col { min-width: 0; }
 @media (max-width: 900px) {
@@ -52,7 +56,7 @@ main {
 /* ---- plots ---- */
 .plots-card { padding: 10px 14px; }
 #timeline { height: 64px; cursor: default; }
-.plot-row { height: 230px; }
+.plot-row { aspect-ratio: 2.1; min-height: 240px; max-height: 460px; }
 
 canvas {
   display: block;
@@ -154,6 +158,7 @@ canvas {
 
 /* ---- share card ---- */
 #btn-export, #btn-import { width: 100%; margin-bottom: 8px; }
+#btn-import { background: var(--muted); }
 textarea {
   width: 100%;
   box-sizing: border-box;

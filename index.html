@@ -2,32 +2,57 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f4f6fa" />
+  <meta name="description" content="Interactive high-school physics lab: piecewise linear motion with linked x(t), u(t) and a(t) plots." />
   <title>Linear Motion Lab</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%230072B2'/%3E%3Cpath%20d='M4%2024C12%2024%2012%208%2028%208'%20stroke='white'%20stroke-width='3'%20fill='none'/%3E%3Ccircle%20cx='28'%20cy='8'%20r='3'%20fill='white'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
     <h1>Linear Motion Lab</h1>
-    <p class="subtitle">Constant velocity &amp; constant acceleration — drag the marker, shape the intervals, press play.</p>
+    <p class="subtitle">Constant velocity &amp; constant acceleration — shape the intervals, scrub the marker, press play.</p>
   </header>
 
   <main>
-    <!-- Left column: plots, legend, track, objects, animation -->
+    <!-- Left column: plots, legend, track, animation -->
     <div class="left-col">
-      <section class="plots-card card">
+      <section class="plots-card card" aria-label="Motion plots">
         <div class="t1-bar">
           <span class="t1-title">At time t₁ — <b id="out-t1">5 s</b></span>
           <div id="readouts"></div>
         </div>
-        <canvas id="timeline" class="timeline"></canvas>
-        <div class="plot-row" id="row-x"><canvas id="plot-x"></canvas></div>
-        <div class="plot-row" id="row-u"><canvas id="plot-u"></canvas></div>
-        <div class="plot-row" id="row-a"><canvas id="plot-a"></canvas></div>
+
+        <canvas id="timeline" class="timeline" role="slider" tabindex="0"
+                aria-label="Current time t₁ — drag horizontally, or use the arrow keys"></canvas>
+
+        <!-- Scrubber: the touch/keyboard-friendly twin of the timeline marker -->
+        <div class="scrub">
+          <label class="sr-only" for="in-t1">Current time t₁, in seconds</label>
+          <input id="in-t1" type="range" aria-describedby="out-t1" />
+          <span class="scrub-range" id="out-trange">0 – 10 s</span>
+        </div>
+
+        <!-- Transport bar: always visible, independent of the track card -->
+        <div class="transport">
+          <button id="btn-play" class="btn btn-lg" aria-pressed="false">▶ Play</button>
+          <button id="btn-reset" class="btn btn-secondary" title="Back to t₀">Reset</button>
+          <label class="speed-lbl" for="in-speed">Speed
+            <input id="in-speed" type="range" min="0.25" max="3" step="0.25" value="1" />
+            <output id="out-speed" for="in-speed">1×</output>
+          </label>
+          <span class="kbd-hint">Space also plays / pauses</span>
+        </div>
+
+        <div class="plot-row" id="row-x"><canvas id="plot-x" role="img" aria-label="Position plot x of t"></canvas></div>
+        <div class="plot-row" id="row-u"><canvas id="plot-u" role="img" aria-label="Velocity plot u of t"></canvas></div>
+        <div class="plot-row" id="row-a"><canvas id="plot-a" role="img" aria-label="Acceleration plot a of t"></canvas></div>
       </section>
 
       <!-- Legend -->
-      <section class="card legend-card" id="legend-card">
+      <section class="card legend-card" id="legend-card" aria-label="Legend">
         <h2>Legend</h2>
         <div id="legend-objects" class="legend-objects"></div>
         <div class="legend-items">
@@ -38,40 +63,30 @@
         </div>
       </section>
 
-      <!-- Track + animation -->
-      <section class="card track-card" id="track-card">
+      <!-- Track (real movement on a line) -->
+      <section class="card track-card" id="track-card" aria-label="Real movement on a line">
         <h2>Real movement on a line</h2>
-        <canvas id="track"></canvas>
-        <div class="track-anim">
-          <div class="anim-row">
-            <button id="btn-play" class="btn-play">▶ Play</button>
-            <label>Speed
-              <input id="in-speed" type="range" min="0.25" max="3" step="0.25" value="1" />
-            </label>
-            <span id="out-speed">1×</span>
-          </div>
-          <button id="btn-reset" class="btn-reset">Reset</button>
-        </div>
+        <canvas id="track" role="img" aria-label="Objects moving on a straight line"></canvas>
       </section>
     </div>
 
     <!-- Right column: controls -->
-    <aside class="controls">
+    <aside class="controls" aria-label="Controls">
       <div class="card">
         <h2>Global</h2>
         <div class="param-grid">
           <label>t₀ (s)
-            <input id="in-t0" type="number" step="0.5" value="0" />
+            <input id="in-t0" type="text" value="0" inputmode="decimal" autocomplete="off" spellcheck="false" />
           </label>
         </div>
-        <p class="hint">t₀ shifts the whole scenario in time. The current time t₁ is set by dragging the black marker on the timeline.</p>
+        <p class="note">t₀ shifts the whole scenario in time. The current time t₁ is set by dragging the black marker (or the slider above the plots).</p>
       </div>
 
       <div class="card">
         <h2>Objects</h2>
-        <p class="hint">Each object has its own studied intervals (Δt, x, v, a; a = 0 gives constant velocity). The initial x of every interval after the first is fixed by continuity with the previous one; the velocity v may change abruptly at a boundary. Change the durations with the Δt inputs.</p>
+        <p class="note">Each object has its own studied intervals (Δt, x, v, a; a = 0 gives constant velocity). The initial x of every interval after the first is fixed by continuity with the previous one; the velocity v may change abruptly at a boundary.</p>
         <div id="objects-container"></div>
-        <button id="btn-add-object" class="btn-add">+ Add object</button>
+        <button id="btn-add-object" class="btn btn-primary">+ Add object</button>
       </div>
 
       <div class="card">
@@ -90,14 +105,17 @@
 
       <div class="card">
         <h2>Share</h2>
-        <p class="hint">The scenario is saved automatically in this browser. Export a code to share it, or paste one below to import it.</p>
-        <button id="btn-export" class="btn-play">Export code</button>
-        <textarea id="out-code" readonly rows="3" placeholder="…"></textarea>
-        <textarea id="in-code" rows="3" placeholder="Paste a scenario code…"></textarea>
-        <button id="btn-import" class="btn-reset">Import</button>
+        <p class="note">The scenario is saved automatically in this browser. Export a code to share it, or paste one below to import it.</p>
+        <button id="btn-export" class="btn btn-primary">Export code</button>
+        <textarea id="out-code" readonly rows="2" placeholder="…" aria-label="Scenario code to share"></textarea>
+        <textarea id="in-code" rows="2" placeholder="Paste a scenario code…" aria-label="Scenario code to import"></textarea>
+        <button id="btn-import" class="btn btn-secondary">Import</button>
+        <button id="btn-clear" class="btn btn-ghost">Reset everything to the default scenario</button>
       </div>
     </aside>
   </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="app.js"></script>
 </body>

@@ -12,6 +12,7 @@
 // Constants & state
 // ---------------------------------------------------------------------------
 const MIN_DT = 0.5;
+const MAX_INTERVALS = 8;
 const MAX_OBJECTS = 4;
 const OBJ_NAMES = ["A", "B", "C", "D"];
 const COLORS = ["#0072B2", "#E69F00", "#009E73", "#D55E00"]; // Okabe-Ito
@@ -19,18 +20,25 @@ const SUP = ["", "ᵃ", "ᵇ", "ᶜ", "ᵈ"];
 const INK = "#1c2333"; // t1 marker
 const GRAY = "#8b93a7"; // interval boundaries
 const MUTE = "#5b6478";
+const PANELS = ["x", "u", "a", "legend", "track"];
+const COARSE = window.matchMedia("(pointer: coarse)");
 
-const state = {
+// the scenario the app falls back to (and what "Reset everything" restores)
+const DEFAULT_STATE = {
   t0: 0,
-  t1: 5, // draggable time marker
+  t1: 5,
   speed: 1,
-  axisZero: true, // draw the t-axis at the level where the value is 0
-  playing: false,
-  show: { x: true, u: true, a: true, legend: false, track: false }, // visible panels
+  axisZero: true,
+  show: { x: true, u: true, a: true, legend: false, track: false },
   objects: [
     { name: "A", intervals: [{ dt: 5, x: 0, v: 4, a: 0 }, { dt: 5, x: 0, v: 4, a: 0 }] },
   ],
 };
+const defaultState = () => JSON.parse(JSON.stringify(DEFAULT_STATE));
+
+const state = Object.assign(defaultState(), {
+  playing: false,
+});
 
 // ---------------------------------------------------------------------------
 // Physics (per object)
@@ -49,6 +57,7 @@ function propagateIntervals(obj) {
 function propagateAll() { state.objects.forEach(propagateIntervals); }
 
 function objDuration(obj) { return obj.intervals.reduce((s, iv) => s + iv.dt, 0); }
+function clampT1(t) { return Math.min(Math.max(t, state.t0), tEnd()); }
 function objTEnd(obj) { return state.t0 + objDuration(obj); }
 function tEnd() { return state.t0 + Math.max(...state.objects.map(objDuration)); }
 
@@ -113,21 +122,32 @@ function fmt(v, digits = 2) {
 function numStr(v) {
   return String(Number(v.toFixed(2)));
 }
+// accepts "3.5" and the comma form "3,5" that the readouts use
+function parseNum(s) {
+  return parseFloat(String(s).trim().replace(",", "."));
+}
 
-// Shared plot geometry so all plots align on the time axis
-const PAD = { left: 48, right: 18, top: 12, bottom: 22 };
+// ---------------------------------------------------------------------------
+// Plot geometry — shared so every plot aligns on the same time axis.
+// The left gutter shrinks on narrow canvases so the curves keep room to breathe.
+// ---------------------------------------------------------------------------
+const PAD_WIDE = { left: 48, right: 18, top: 12, bottom: 22 };
+const PAD_NARROW = { left: 40, right: 12, top: 12, bottom: 20 };
+function padFor(w) { return w < 430 ? PAD_NARROW : PAD_WIDE; }
 
 function timeToX(t, w) {
+  const p = padFor(w);
   const span = tEnd() - state.t0;
-  return PAD.left + ((t - state.t0) / span) * (w - PAD.left - PAD.right);
+  return p.left + ((t - state.t0) / span) * (w - p.left - p.right);
 }
 function xToTime(px, w) {
+  const p = padFor(w);
   const span = tEnd() - state.t0;
-  return state.t0 + ((px - PAD.left) / (w - PAD.left - PAD.right)) * span;
+  return state.t0 + ((px - p.left) / (w - p.left - p.right)) * span;
 }
 function valueToY(v, vmin, vmax, h) {
   const span = vmax - vmin || 1;
-  return h - PAD.bottom - ((v - vmin) / span) * (h - PAD.top - PAD.bottom);
+  return h - PAD_WIDE.bottom - ((v - vmin) / span) * (h - PAD_WIDE.top - PAD_WIDE.bottom);
 }
 
 function niceRange(min, max, padFrac = 0.15) {
@@ -140,29 +160,34 @@ function niceRange(min, max, padFrac = 0.15) {
   return [min - pad, max + pad];
 }
 
-function drawAxes(ctx, w, h, yLabel, y0) {
+function drawAxes(ctx, w, h, symbol, unit, y0) {
+  const p = padFor(w);
   ctx.strokeStyle = "#3a4152";
   ctx.fillStyle = "#3a4152";
   ctx.lineWidth = 1.4;
 
   // t-axis (horizontal, at height y0)
   ctx.beginPath();
-  ctx.moveTo(PAD.left - 4, y0);
-  ctx.lineTo(w - PAD.right + 6, y0);
+  ctx.moveTo(p.left - 4, y0);
+  ctx.lineTo(w - p.right + 6, y0);
   ctx.stroke();
-  arrowHead(ctx, w - PAD.right + 6, y0, 0);
+  arrowHead(ctx, w - p.right + 6, y0, 0);
   ctx.font = "italic 14px Georgia, serif";
-  ctx.fillText("t", w - PAD.right + 10, y0 + 4);
+  ctx.fillText("t", w - p.right + 10, y0 + 4);
 
   // value axis (vertical, full plot height, from bottom up)
   ctx.beginPath();
-  ctx.moveTo(PAD.left, h - PAD.bottom);
-  ctx.lineTo(PAD.left, PAD.top - 6);
+  ctx.moveTo(p.left, h - p.bottom);
+  ctx.lineTo(p.left, p.top - 6);
   ctx.stroke();
-  arrowHead(ctx, PAD.left, PAD.top - 6, -Math.PI / 2);
-  ctx.font = "italic 15px Georgia, serif";
+  arrowHead(ctx, p.left, p.top - 6, -Math.PI / 2);
+  // quantity symbol + its unit
   ctx.textAlign = "right";
-  ctx.fillText(yLabel, PAD.left - 8, PAD.top + 4);
+  ctx.font = "italic 15px Georgia, serif";
+  ctx.fillText(symbol, p.left - 8, p.top + 5);
+  ctx.font = "11px sans-serif";
+  ctx.fillStyle = MUTE;
+  ctx.fillText(unit, p.left - 8, p.top + 19);
   ctx.textAlign = "start";
   ctx.lineWidth = 1;
 }
@@ -181,8 +206,9 @@ function arrowHead(ctx, x, y, angle) {
 // Plot rendering
 // ---------------------------------------------------------------------------
 // series: [{ color, fn, tEnd, stepSegs (null for x/u), specials: [{v,label,color}] }]
-function drawPlot(canvas, yLabel, series) {
+function drawPlot(canvas, symbol, unit, series) {
   const { ctx, w, h } = setupCanvas(canvas);
+  const p = padFor(w);
   ctx.clearRect(0, 0, w, h);
 
   // y-range over all series
@@ -199,18 +225,11 @@ function drawPlot(canvas, yLabel, series) {
   const [vmin, vmax] = niceRange(mn, mx);
 
   const axisAtBottom = !state.axisZero;
-  const y0 = axisAtBottom ? h - PAD.bottom : valueToY(0, vmin, vmax, h);
-  drawAxes(ctx, w, h, yLabel, y0);
+  const y0 = axisAtBottom ? h - p.bottom : valueToY(0, vmin, vmax, h);
+  drawAxes(ctx, w, h, symbol, unit, y0);
 
-  // vertical lines at internal boundaries (union over all objects), dashed, full height
-  const bts = [];
-  state.objects.forEach((obj) => {
-    intervalBounds(obj).forEach((b, i) => {
-      if (i < obj.intervals.length - 1 && !bts.some((t) => Math.abs(t - b.end) < 1e-6)) {
-        bts.push(b.end);
-      }
-    });
-  });
+  // vertical lines at the internal boundaries (union over all objects)
+  const bts = boundaryTimes();
   ctx.strokeStyle = GRAY;
   ctx.setLineDash([5, 4]);
   for (const bt of bts) {
@@ -227,8 +246,8 @@ function drawPlot(canvas, yLabel, series) {
     ctx.strokeStyle = "#c9cfdb";
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.moveTo(PAD.left, valueToY(0, vmin, vmax, h));
-    ctx.lineTo(w - PAD.right, valueToY(0, vmin, vmax, h));
+    ctx.moveTo(p.left, valueToY(0, vmin, vmax, h));
+    ctx.lineTo(w - p.right, valueToY(0, vmin, vmax, h));
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -246,16 +265,16 @@ function drawPlot(canvas, yLabel, series) {
       ctx.globalAlpha = 0.5;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(PAD.left, py);
-      ctx.lineTo(w - PAD.right, py);
+      ctx.moveTo(p.left, py);
+      ctx.lineTo(w - p.right, py);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
       // tick on the y-axis
       ctx.strokeStyle = "#3a4152";
       ctx.beginPath();
-      ctx.moveTo(PAD.left - 4, py);
-      ctx.lineTo(PAD.left, py);
+      ctx.moveTo(p.left - 4, py);
+      ctx.lineTo(p.left, py);
       ctx.stroke();
       // numeric value on the y-axis (skip if it would overlap another one)
       const ny = py + 4;
@@ -263,7 +282,7 @@ function drawPlot(canvas, yLabel, series) {
         ctx.fillStyle = "#3a4152";
         ctx.font = "11px sans-serif";
         ctx.textAlign = "right";
-        ctx.fillText(fmt(sp.v, 1), PAD.left - 7, ny);
+        ctx.fillText(fmt(sp.v, 1), p.left - 7, ny);
         ctx.textAlign = "start";
         axisNumYs.push(ny);
       }
@@ -274,7 +293,7 @@ function drawPlot(canvas, yLabel, series) {
         ctx.fillStyle = sp.color;
         ctx.font = "italic 12px Georgia, serif";
         ctx.textAlign = "right";
-        ctx.fillText(sp.label, w - PAD.right - 2, ly);
+        ctx.fillText(sp.label, w - p.right - 2, ly);
         ctx.textAlign = "start";
         nameYs.push(ly);
       }
@@ -329,8 +348,8 @@ function drawPlot(canvas, yLabel, series) {
   ctx.strokeStyle = INK;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
-  ctx.moveTo(tx, PAD.top);
-  ctx.lineTo(tx, h - PAD.bottom);
+  ctx.moveTo(tx, p.top);
+  ctx.lineTo(tx, h - p.bottom);
   ctx.stroke();
   ctx.setLineDash([]);
   for (const s of series) {
@@ -362,105 +381,116 @@ function drawTimeline(canvas) {
   const { ctx, w, h } = setupCanvas(canvas);
   ctx.clearRect(0, 0, w, h);
 
+  const p = padFor(w);
+  const coarse = COARSE.matches;
   const y = h / 2;
+  const R = coarse ? 9 : 7;              // knob radius (touch needs more grip)
+  const labY = y + (coarse ? 26 : 20);   // shared baseline for tick / boundary labels
+  const xOf = (t) => timeToX(t, w);
 
   // main line — same horizontal extent as the plots' t-axis
   ctx.strokeStyle = "#3a4152";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(PAD.left - 4, y);
-  ctx.lineTo(w - PAD.right + 6, y);
+  ctx.moveTo(p.left - 4, y);
+  ctx.lineTo(w - p.right + 6, y);
   ctx.stroke();
   ctx.lineWidth = 1;
 
-  // endpoints t0 and t_end
+  // endpoints t₀ and t_f
   ctx.fillStyle = "#3a4152";
   for (const t of [state.t0, tEnd()]) {
     ctx.beginPath();
-    ctx.arc(timeToX(t, w), y, 3.5, 0, Math.PI * 2);
+    ctx.arc(xOf(t), y, coarse ? 4.5 : 3.5, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.font = "italic 13px Georgia, serif";
+  ctx.font = `italic ${coarse ? 14 : 13}px Georgia, serif`;
   ctx.textAlign = "left";
-  ctx.fillText("t = t₀", timeToX(state.t0, w) - 4, y - 12);
+  ctx.fillText("t₀", xOf(state.t0) - 4, y - 12);
   ctx.textAlign = "right";
-  ctx.fillText("t = t_f", timeToX(tEnd(), w) + 4, y - 12);
+  ctx.fillText("t_f", xOf(tEnd()) + 4, y - 12);
   ctx.textAlign = "start";
 
-  // Δt labels (only unambiguous with a single object)
+  // Δt labels (only unambiguous when there is a single object)
   if (state.objects.length === 1) {
     const bounds = intervalBounds(state.objects[0]);
     ctx.fillStyle = MUTE;
-    ctx.font = "12px sans-serif";
+    ctx.font = `${coarse ? 13 : 12}px sans-serif`;
     ctx.textAlign = "center";
     bounds.forEach((b, i) => {
-      const cx = (timeToX(b.start, w) + timeToX(b.end, w)) / 2;
-      // skip labels that would collide with the t₁ marker label
-      if (Math.abs(cx - timeToX(state.t1, w)) < 34) return;
+      const cx = (xOf(b.start) + xOf(b.end)) / 2;
+      if (Math.abs(cx - xOf(state.t1)) < (coarse ? 42 : 34)) return;  // keep clear of t₁
       ctx.fillText("Δt" + (i + 1), cx, y - 8);
     });
     ctx.textAlign = "start";
   }
 
-  // static boundary points (union over all objects) + their t values
+  // internal boundary marks and their t values (union over all objects)
   const bts = boundaryTimes();
-  const bxs = bts.map((t) => timeToX(t, w));
-  const labelYs = [];
+  const bxs = bts.map(xOf);
   bts.forEach((t, i) => {
+    const s = coarse ? 5 : 4;
     ctx.fillStyle = GRAY;
-    ctx.fillRect(bxs[i] - 4, y - 4, 8, 8);
-    const ly = y + 20;
-    if (!labelYs.some((yy) => Math.abs(yy - ly) < 13) &&
-        !bxs.some((bx, j) => j !== i && Math.abs(bx - bxs[i]) < 16)) {
-      ctx.fillStyle = MUTE;
-      ctx.font = "11px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(fmt(t, 1), bxs[i], ly);
-      ctx.textAlign = "start";
-      labelYs.push(ly);
-    }
+    ctx.beginPath();
+    ctx.moveTo(bxs[i], y - s - 1);
+    ctx.lineTo(bxs[i] - s, y - 1);
+    ctx.lineTo(bxs[i] + s, y - 1);
+    ctx.closePath();
+    ctx.fill();
+    if (bxs.some((bx, j) => j !== i && Math.abs(bx - bxs[i]) < 22)) return; // too crowded
+    ctx.fillStyle = MUTE;
+    ctx.font = `${coarse ? 12 : 11}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText(fmt(t, 1), bxs[i], labY);
+    ctx.textAlign = "start";
   });
 
-  // t1 marker (big circle)
-  const mx = timeToX(state.t1, w);
+  // t₁ marker: a draggable knob, with a halo on touch screens
+  const mx = xOf(state.t1);
+  if (coarse) {
+    ctx.fillStyle = "rgba(28,35,51,0.18)";
+    ctx.beginPath();
+    ctx.arc(mx, y, R + 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.fillStyle = INK;
   ctx.beginPath();
-  ctx.arc(mx, y, 7, 0, Math.PI * 2);
+  ctx.arc(mx, y, R, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.lineWidth = 1;
+
+  // the t₁ label slides away from the t₀ / t_f corner labels
   ctx.fillStyle = INK;
-  ctx.font = "italic 13px Georgia, serif";
-  // keep the t₁ label clear of the t₀ / t_f corner labels
-  const t1w = ctx.measureText("t = t₁").width;
-  const tfW = ctx.measureText("t = t_f").width;
-  const tfStart = timeToX(tEnd(), w) + 4 - tfW; // t_f label extends leftward
-  const t0x = timeToX(state.t0, w);
-  const t0End = t0x - 4 + ctx.measureText("t = t₀").width; // t0 label extends rightward
+  ctx.font = `italic ${coarse ? 14 : 13}px Georgia, serif`;
+  const t1W = ctx.measureText("t₁").width;
+  const t0End = xOf(state.t0) - 4 + ctx.measureText("t₀").width;
+  const tfStart = xOf(tEnd()) + 4 - ctx.measureText("t_f").width;
   let lx = mx, align = "center";
-  if (lx + t1w / 2 > tfStart - 8) { lx = Math.min(mx - 10, tfStart - 10); align = "right"; }
-  if (lx - t1w / 2 < t0End + 8) { lx = Math.max(mx + 10, t0End + 8); align = "left"; }
+  if (lx + t1W / 2 > tfStart - 8) { lx = Math.min(mx - 12, tfStart - 10); align = "right"; }
+  if (lx - t1W / 2 < t0End + 8) { lx = Math.max(mx + 12, t0End + 10); align = "left"; }
   ctx.textAlign = align;
-  ctx.fillText("t = t₁", lx, y - 12);
+  ctx.fillText("t₁", lx, y - 12);
   ctx.textAlign = "start";
 
-  // tick marks (labels skipped where a boundary value is shown)
+  // ticks (a label is skipped where a boundary value already sits)
   const span = tEnd() - state.t0;
-  const step = span > 20 ? 5 : span > 8 ? 2 : 1;
+  let step = span > 20 ? 5 : span > 8 ? 2 : 1;
+  if (coarse) step *= 2;                       // fewer, roomier labels on a phone
   ctx.strokeStyle = "#aab1c2";
   ctx.fillStyle = "#6b7280";
-  ctx.font = "11px sans-serif";
+  ctx.font = `${coarse ? 12 : 11}px sans-serif`;
   for (let t = Math.ceil(state.t0 / step) * step; t <= tEnd() + 1e-9; t += step) {
-    const px = timeToX(t, w);
+    const px = xOf(t);
     ctx.beginPath();
     ctx.moveTo(px, y + 5);
-    ctx.lineTo(px, y + 9);
+    ctx.lineTo(px, y + (coarse ? 11 : 9));
     ctx.stroke();
     if (!bxs.some((bx) => Math.abs(bx - px) < 10)) {
       ctx.textAlign = "center";
-      ctx.fillText(fmt(t, 0), px, y + 20);
+      ctx.fillText(fmt(t, 0), px, labY);
       ctx.textAlign = "start";
     }
   }
@@ -572,9 +602,30 @@ function updateReadouts() {
     row.className = "readout-line";
     row.innerHTML =
       `<span class="chip" style="background:${COLORS[i]}"></span>` +
-      `<b>${obj.name}</b> &nbsp;x = ${fmt(k.x)} m · u = ${fmt(k.u)} m/s · a = ${fmt(k.a)} m/s²`;
+      `<b>${obj.name}</b> x = ${fmt(k.x)} m · u = ${fmt(k.u)} m/s · a = ${fmt(k.a)} m/s²`;
     el.appendChild(row);
   });
+  syncScrubber();
+}
+
+// keep the scrubber slider and the timeline's slider semantics in sync with t₁
+function syncScrubber() {
+  const hi = tEnd();
+  const span = hi - state.t0 || 1;
+  const step = Math.max(0.05, Math.round((span / 300) * 200) / 200);
+  setAttr(t1Range, "min", numStr(state.t0));
+  setAttr(t1Range, "max", numStr(hi));
+  setAttr(t1Range, "step", String(step));
+  if (Number(t1Range.value) !== state.t1) t1Range.value = String(state.t1);
+  document.getElementById("out-trange").textContent = `${fmt(state.t0, 1)} – ${fmt(hi, 1)} s`;
+
+  setAttr(timelineCanvas, "aria-valuemin", numStr(state.t0));
+  setAttr(timelineCanvas, "aria-valuemax", numStr(hi));
+  setAttr(timelineCanvas, "aria-valuenow", numStr(state.t1));
+  setAttr(timelineCanvas, "aria-valuetext", `t₁ = ${fmt(state.t1)} s`);
+}
+function setAttr(el, name, val) {
+  if (el.getAttribute(name) !== val) el.setAttribute(name, val);
 }
 
 function renderIntervalStats(el, obj) {
@@ -593,6 +644,13 @@ function renderIntervalStats(el, obj) {
 // ---------------------------------------------------------------------------
 // Objects & intervals UI (DOM)
 // ---------------------------------------------------------------------------
+const IV_FIELDS = [
+  { key: "dt", label: "Δt (s)" },
+  { key: "x", label: "x (m)" },
+  { key: "v", label: "v (m/s)" },
+  { key: "a", label: "a (m/s²)" },
+];
+
 function buildIntervalsTable(table, obj) {
   table.innerHTML = "";
   const thead = document.createElement("thead");
@@ -603,38 +661,59 @@ function buildIntervalsTable(table, obj) {
 
   obj.intervals.forEach((iv, i) => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${i + 1}</td>`;
-    ["dt", "x", "v", "a"].forEach((key) => {
+    const idx = document.createElement("td");
+    idx.className = "idx";
+    idx.textContent = "I" + (i + 1);
+    tr.appendChild(idx);
+
+    IV_FIELDS.forEach((f) => {
       const td = document.createElement("td");
+      td.className = "f-" + f.key;
+      td.dataset.label = f.label;          // shown on narrow screens
       const input = document.createElement("input");
-      input.type = "number";
-      input.step = "0.5";
-      input.value = numStr(iv[key]);
-      if (i > 0 && key === "x") {
+      // text + inputmode="decimal" instead of type="number": phones show the
+      // decimal keypad, and a comma ("3,5") stays editable instead of being
+      // wiped out by the browser's number parser
+      input.type = "text";
+      input.inputMode = "decimal";
+      input.enterKeyHint = "done";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.title = f.label;
+      input.setAttribute("aria-label", `Object ${obj.name}, interval ${i + 1}: ${f.label}`);
+      input.value = numStr(iv[f.key]);
+      if (i > 0 && f.key === "x") {
         input.disabled = true; // fixed by continuity
         input.title = "Fixed by continuity with the previous interval";
+        td.classList.add("locked");
       } else {
         input.addEventListener("change", () => {
-          const val = parseFloat(input.value);
-          if (!isFinite(val)) return;
-          onIntervalChange(obj, i, key, val);
+          const val = parseNum(input.value);
+          if (!isFinite(val)) { input.value = numStr(iv[f.key]); return; }
+          onIntervalChange(obj, i, f.key, val);
+        });
+        // Enter dismisses the phone keyboard instead of adding a phantom value
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); input.blur(); }
         });
       }
       td.appendChild(input);
       tr.appendChild(td);
     });
+
     const tdDel = document.createElement("td");
+    tdDel.className = "del";
     const btn = document.createElement("button");
     btn.className = "btn-remove";
     btn.textContent = "✕";
     btn.disabled = obj.intervals.length <= 1;
     btn.title = "Remove interval";
+    btn.setAttribute("aria-label", `Remove interval ${i + 1} of object ${obj.name}`);
     btn.addEventListener("click", () => {
       obj.intervals.splice(i, 1);
       propagateIntervals(obj);
-      buildObjectsUI();
-      syncUI();
-      renderAll();
+      state.t1 = clampT1(state.t1);
+      refresh();
     });
     tdDel.appendChild(btn);
     tr.appendChild(tdDel);
@@ -642,6 +721,19 @@ function buildIntervalsTable(table, obj) {
   });
 
   table.appendChild(tbody);
+}
+
+// one call for "the scenario changed structurally, repaint everything"
+function refresh() {
+  buildObjectsUI();
+  syncUI();
+  renderAll();
+}
+
+// object letters always follow the list order, so deleting one never leaves
+// two objects sharing a name (or a colour index)
+function renumberObjects() {
+  state.objects.forEach((o, i) => (o.name = OBJ_NAMES[i]));
 }
 
 function buildObjectsUI() {
@@ -658,13 +750,13 @@ function buildObjectsUI() {
     del.className = "btn-remove";
     del.textContent = "✕";
     del.title = "Remove object";
+    del.setAttribute("aria-label", `Remove object ${obj.name}`);
     del.disabled = state.objects.length <= 1;
     del.addEventListener("click", () => {
       state.objects.splice(oi, 1);
-      state.t1 = Math.min(state.t1, tEnd());
-      buildObjectsUI();
-      syncUI();
-      renderAll();
+      renumberObjects();
+      state.t1 = clampT1(state.t1);
+      refresh();
     });
     head.appendChild(del);
     card.appendChild(head);
@@ -675,14 +767,18 @@ function buildObjectsUI() {
     card.appendChild(table);
 
     const addBtn = document.createElement("button");
-    addBtn.className = "btn-small";
+    addBtn.className = "btn btn-primary btn-sm";
     addBtn.textContent = "+ Add interval";
+    addBtn.disabled = obj.intervals.length >= MAX_INTERVALS;
+    addBtn.title = obj.intervals.length >= MAX_INTERVALS ? `Up to ${MAX_INTERVALS} intervals per object` : "";
     addBtn.addEventListener("click", () => {
-      obj.intervals.push({ dt: 5, x: 0, v: 0, a: 0 });
+      if (obj.intervals.length >= MAX_INTERVALS) return;
+      // start the new interval at the previous interval's final velocity,
+      // so adding one does not invent a velocity jump by default
+      const last = obj.intervals[obj.intervals.length - 1];
+      obj.intervals.push({ dt: 5, x: 0, v: last.v, a: 0 });
       propagateIntervals(obj);
-      buildObjectsUI();
-      syncUI();
-      renderAll();
+      refresh();
     });
     card.appendChild(addBtn);
 
@@ -693,7 +789,11 @@ function buildObjectsUI() {
 
     cont.appendChild(card);
   });
-  document.getElementById("btn-add-object").disabled = state.objects.length >= MAX_OBJECTS;
+
+  const addObj = document.getElementById("btn-add-object");
+  const full = state.objects.length >= MAX_OBJECTS;
+  addObj.disabled = full;
+  addObj.title = full ? `Up to ${MAX_OBJECTS} objects` : "";
   buildLegend();
 }
 
@@ -713,7 +813,7 @@ function onIntervalChange(obj, i, key, val) {
   if (key === "dt") val = Math.max(MIN_DT, val);
   iv[key] = val;
   propagateIntervals(obj);
-  state.t1 = Math.min(Math.max(state.t1, state.t0), tEnd());
+  state.t1 = clampT1(state.t1);
   syncUI();
   renderAll();
 }
@@ -736,15 +836,14 @@ function syncUI() {
 
 document.getElementById("btn-add-object").addEventListener("click", () => {
   if (state.objects.length >= MAX_OBJECTS) return;
-  const n = state.objects.length;
+  const prev = state.objects[state.objects.length - 1];
+  const v = prev.intervals[prev.intervals.length - 1].v;
   state.objects.push({
-    name: OBJ_NAMES[n],
-    intervals: [{ dt: 5, x: 0, v: 2, a: 0 }, { dt: 5, x: 0, v: 2, a: 0 }],
+    name: OBJ_NAMES[state.objects.length],
+    intervals: [{ dt: 5, x: 0, v, a: 0 }, { dt: 5, x: 0, v, a: 0 }],
   });
   propagateAll();
-  buildObjectsUI();
-  syncUI();
-  renderAll();
+  refresh();
 });
 
 // ---------------------------------------------------------------------------
@@ -793,15 +892,44 @@ function makeSeries(kind) {
 }
 
 function renderAll() {
-  state.t1 = Math.min(Math.max(state.t1, state.t0), tEnd());
+  state.t1 = clampT1(state.t1);
 
   drawTimeline(document.getElementById("timeline"));
-  if (state.show.x) drawPlot(document.getElementById("plot-x"), "x", makeSeries("x"));
-  if (state.show.u) drawPlot(document.getElementById("plot-u"), "u", makeSeries("u"));
-  if (state.show.a) drawPlot(document.getElementById("plot-a"), "a", makeSeries("a"));
+  if (state.show.x) drawPlot(document.getElementById("plot-x"), "x", "m", makeSeries("x"));
+  if (state.show.u) drawPlot(document.getElementById("plot-u"), "u", "m/s", makeSeries("u"));
+  if (state.show.a) drawPlot(document.getElementById("plot-a"), "a", "m/s²", makeSeries("a"));
   if (state.show.track) drawTrack(document.getElementById("track"));
   updateReadouts();
-  scheduleSave();
+  // no point hammering localStorage 60 times a second while the animation runs
+  if (!state.playing) scheduleSave();
+}
+
+// repaint at most once per frame (resize / panel toggles arrive in bursts)
+let renderQueued = false;
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    renderAll();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Panel visibility
+// ---------------------------------------------------------------------------
+function panelEl(kind) {
+  return kind === "legend" ? document.getElementById("legend-card")
+    : kind === "track" ? document.getElementById("track-card")
+    : document.getElementById("row-" + kind);
+}
+function applyVisibility() {
+  PANELS.forEach((k) => { panelEl(k).style.display = state.show[k] ? "" : "none"; });
+}
+function setPanelVisible(kind, visible) {
+  state.show[kind] = visible;
+  applyVisibility();
+  renderAll();
 }
 
 // ---------------------------------------------------------------------------
@@ -853,7 +981,7 @@ function sanitizeState(s) {
     if (!o || !Array.isArray(o.intervals) || !o.intervals.length) continue;
     out.objects.push({
       name: OBJ_NAMES[i],
-      intervals: o.intervals.slice(0, 8).map((iv) => ({
+      intervals: o.intervals.slice(0, MAX_INTERVALS).map((iv) => ({
         dt: Math.max(MIN_DT, isFinite(iv.dt) ? iv.dt : 5),
         x: isFinite(iv.x) ? iv.x : 0,
         v: isFinite(iv.v) ? iv.v : 0,
@@ -868,21 +996,16 @@ function applyState(s) {
   const clean = sanitizeState(s);
   if (!clean) return false;
   Object.assign(state, clean);
-  t0El.value = clean.t0;
+  setPlaying(false);
+  renumberObjects();
+  t0El.value = numStr(clean.t0);
   speedEl.value = clean.speed;
   document.getElementById("out-speed").textContent = `${fmt(clean.speed, 1)}×`;
   document.getElementById("in-axis-zero").checked = clean.axisZero;
-  ["x", "u", "a", "legend", "track"].forEach((k) => {
-    document.getElementById("show-" + k).checked = clean.show[k];
-    const el = k === "legend" ? document.getElementById("legend-card")
-      : k === "track" ? document.getElementById("track-card")
-      : document.getElementById("row-" + k);
-    el.style.display = clean.show[k] ? "" : "none";
-  });
+  PANELS.forEach((k) => { document.getElementById("show-" + k).checked = clean.show[k]; });
+  applyVisibility();
   propagateAll();
-  buildObjectsUI();
-  syncUI();
-  renderAll();
+  refresh();
   return true;
 }
 
@@ -890,57 +1013,117 @@ function applyState(s) {
 // Interaction: dragging on the timeline
 // ---------------------------------------------------------------------------
 const timelineCanvas = document.getElementById("timeline");
+const t1Range = document.getElementById("in-t1");
 let draggingT1 = false;
 
+// landing close to t₀, an interval boundary or t_end snaps exactly onto it
+function snapTime(t) {
+  const rect = timelineCanvas.getBoundingClientRect();
+  const p = padFor(rect.width);
+  const span = tEnd() - state.t0 || 1;
+  const tol = (6 / Math.max(1, rect.width - p.left - p.right)) * span;
+  for (const bt of [state.t0, ...boundaryTimes(), tEnd()]) {
+    if (Math.abs(t - bt) <= tol) return bt;
+  }
+  return t;
+}
+
+function timeAtClientX(clientX) {
+  const rect = timelineCanvas.getBoundingClientRect();
+  return xToTime(clientX - rect.left, rect.width);
+}
+
+function setT1(t, snap) {
+  state.t1 = clampT1(snap ? snapTime(t) : t);
+  renderAll();
+}
+
 timelineCanvas.addEventListener("pointerdown", (e) => {
+  setPlaying(false);                     // scrubbing always wins over the animation
   draggingT1 = true;
   timelineCanvas.setPointerCapture(e.pointerId);
+  timelineCanvas.style.cursor = "grabbing";
+  setT1(timeAtClientX(e.clientX), true);  // a tap moves the marker too, not only a drag
+  e.preventDefault();
 });
+
 timelineCanvas.addEventListener("pointermove", (e) => {
-  const rect = timelineCanvas.getBoundingClientRect();
-  const px = e.clientX - rect.left;
   if (draggingT1) {
-    state.t1 = xToTime(px, rect.width);
-    renderAll();
-  } else {
-    timelineCanvas.style.cursor = Math.abs(px - timeToX(state.t1, rect.width)) < 14 ? "grab" : "default";
+    setT1(timeAtClientX(e.clientX), true);
+  } else if (e.pointerType === "mouse") {
+    const rect = timelineCanvas.getBoundingClientRect();
+    timelineCanvas.style.cursor =
+      Math.abs(e.clientX - rect.left - timeToX(state.t1, rect.width)) < 14 ? "grab" : "default";
   }
 });
-timelineCanvas.addEventListener("pointerup", () => (draggingT1 = false));
+
+function endDrag() {
+  if (!draggingT1) return;
+  draggingT1 = false;
+  timelineCanvas.style.cursor = "default";
+  scheduleSave();
+}
+timelineCanvas.addEventListener("pointerup", endDrag);
+timelineCanvas.addEventListener("pointercancel", endDrag);
+
+// keyboard scrubbing — the canvas advertises role="slider"
+timelineCanvas.addEventListener("keydown", (e) => {
+  const span = tEnd() - state.t0 || 1;
+  const fine = Math.max(0.1, Math.round((span / 100) * 10) / 10);
+  const coarse = Math.max(0.5, Math.round((span / 20) * 10) / 10);
+  const small = e.shiftKey ? coarse : fine;
+  let t;
+  switch (e.key) {
+    case "ArrowLeft": case "ArrowDown": t = state.t1 - small; break;
+    case "ArrowRight": case "ArrowUp": t = state.t1 + small; break;
+    case "PageDown": t = state.t1 - coarse; break;
+    case "PageUp": t = state.t1 + coarse; break;
+    case "Home": t = state.t0; break;
+    case "End": t = tEnd(); break;
+    default: return;
+  }
+  e.preventDefault();
+  setPlaying(false);
+  setT1(t, false);
+});
+
+t1Range.addEventListener("input", () => {
+  setPlaying(false);
+  state.t1 = parseFloat(t1Range.value);
+  renderAll();
+});
+t1Range.addEventListener("change", scheduleSave);
 
 // ---------------------------------------------------------------------------
 // Inputs
 // ---------------------------------------------------------------------------
 const t0El = document.getElementById("in-t0");
 t0El.addEventListener("change", () => {
-  const v = parseFloat(t0El.value);
-  if (!isFinite(v)) return;
+  const v = parseNum(t0El.value);
+  if (!isFinite(v)) { t0El.value = numStr(state.t0); return; }
   state.t0 = v;
-  state.t1 = Math.min(Math.max(state.t1, state.t0), tEnd());
+  state.t1 = clampT1(state.t1);
   renderAll();
 });
-
+t0El.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); t0El.blur(); }   // closes the phone keypad
+});
 
 const speedEl = document.getElementById("in-speed");
 speedEl.addEventListener("input", () => {
-  state.speed = parseFloat(speedEl.value);
-  document.getElementById("out-speed").textContent = `${fmt(state.speed, 1)}×`;
+  const v = parseNum(speedEl.value);
+  if (!isFinite(v) || v <= 0) return;
+  state.speed = v;
+  document.getElementById("out-speed").textContent = `${fmt(v, 1)}×`;
 });
+speedEl.addEventListener("change", scheduleSave);
 
 document.getElementById("in-axis-zero").addEventListener("change", (e) => {
   state.axisZero = e.target.checked;
   renderAll();
 });
 
-function setPanelVisible(kind, visible) {
-  state.show[kind] = visible;
-  const el = kind === "legend" ? document.getElementById("legend-card")
-    : kind === "track" ? document.getElementById("track-card")
-    : document.getElementById("row-" + kind);
-  el.style.display = visible ? "" : "none";
-  renderAll();
-}
-["x", "u", "a", "legend", "track"].forEach((kind) => {
+PANELS.forEach((kind) => {
   document.getElementById("show-" + kind).addEventListener("change", (e) =>
     setPanelVisible(kind, e.target.checked));
 });
@@ -962,24 +1145,38 @@ function tick(ts) {
 }
 
 const playBtn = document.getElementById("btn-play");
-playBtn.addEventListener("click", () => {
-  state.playing = !state.playing;
-  playBtn.textContent = state.playing ? "⏸ Pause" : "▶ Play";
-  if (state.playing) {
+
+function setPlaying(on) {
+  if (on === state.playing) return;
+  state.playing = on;
+  playBtn.textContent = on ? "Pause" : "▶ Play";
+  playBtn.setAttribute("aria-pressed", String(on));
+  if (on) {
     if (state.t1 >= tEnd() - 1e-9) state.t1 = state.t0;
     lastTs = null;
     rafId = requestAnimationFrame(tick);
   } else {
     cancelAnimationFrame(rafId);
+    lastTs = null;
+    scheduleSave();
   }
-});
+}
+
+playBtn.addEventListener("click", () => setPlaying(!state.playing));
 
 document.getElementById("btn-reset").addEventListener("click", () => {
-  state.playing = false;
-  playBtn.textContent = "▶ Play";
-  cancelAnimationFrame(rafId);
-  state.t1 = state.t0 + (tEnd() - state.t0) / 2;
+  setPlaying(false);
+  state.t1 = state.t0;
   renderAll();
+});
+
+// Space plays/pauses, unless the user is typing into a form control
+window.addEventListener("keydown", (e) => {
+  if (e.code !== "Space" || e.repeat) return;
+  const el = e.target;
+  if (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(el.tagName)) return;
+  e.preventDefault();
+  setPlaying(!state.playing);
 });
 
 // ---------------------------------------------------------------------------
@@ -987,33 +1184,58 @@ document.getElementById("btn-reset").addEventListener("click", () => {
 // ---------------------------------------------------------------------------
 const codeOut = document.getElementById("out-code");
 const codeIn = document.getElementById("in-code");
+const toastEl = document.getElementById("toast");
+let toastTimer = null;
+
+// a toast instead of alert(): non-blocking and legible on a phone
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2400);
+}
+
+// unicode-safe base64, without the deprecated escape/unescape pair
+function encodeCode(json) {
+  let bin = "";
+  for (const b of new TextEncoder().encode(json)) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+function decodeCode(code) {
+  const bin = atob(code.trim().replace(/\s+/g, ""));
+  return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
 
 document.getElementById("btn-export").addEventListener("click", async () => {
-  const code = btoa(unescape(encodeURIComponent(serializeState())));
+  const code = encodeCode(serializeState());
   codeOut.value = code;
-  const btn = document.getElementById("btn-export");
   let copied = false;
   try {
     await navigator.clipboard.writeText(code);
     copied = true;
   } catch (e) {
-    codeOut.select(); // user can copy manually
+    codeOut.select(); // clipboard blocked: the code is selected, copy it by hand
   }
-  const old = btn.textContent;
-  btn.textContent = copied ? "Copied ✓" : "Select & copy";
-  setTimeout(() => (btn.textContent = old), 1500);
+  toast(copied ? "Scenario code copied ✓" : "Code ready — select it and copy");
 });
 
 document.getElementById("btn-import").addEventListener("click", () => {
   const code = codeIn.value.trim();
-  if (!code) return;
-  try {
-    const json = decodeURIComponent(escape(atob(code)));
-    if (applyState(JSON.parse(json))) codeIn.value = "";
-    else alert("Invalid scenario code.");
-  } catch (e) {
-    alert("Invalid scenario code.");
-  }
+  if (!code) { toast("Paste a scenario code first"); return; }
+  let ok = false;
+  try { ok = applyState(JSON.parse(decodeCode(code))); } catch (e) { ok = false; }
+  if (ok) { codeIn.value = ""; toast("Scenario imported"); }
+  else toast("That is not a valid scenario code");
+});
+
+document.getElementById("btn-clear").addEventListener("click", () => {
+  if (!confirm("Discard this scenario and go back to the default one?")) return;
+  try { localStorage.removeItem(LS_KEY); } catch (e) { /* nothing stored */ }
+  setPlaying(false);
+  codeOut.value = "";
+  codeIn.value = "";
+  applyState(defaultState());
+  toast("Default scenario restored");
 });
 
 // ---------------------------------------------------------------------------
@@ -1023,16 +1245,16 @@ let restored = false;
 try {
   const raw = localStorage.getItem(LS_KEY);
   if (raw) restored = applyState(JSON.parse(raw));
-} catch (e) { /* corrupted storage: fall back to defaults */ }
-if (!restored) {
-  propagateAll();
-  buildObjectsUI();
-  syncUI();
-  // legend and track are hidden by default
-  ["legend", "track"].forEach((k) => {
-    document.getElementById(k === "legend" ? "legend-card" : "track-card").style.display = "none";
-  });
+} catch (e) { /* corrupted storage: fall back to the default scenario */ }
+if (!restored) applyState(defaultState());
+
+// repaint when the layout changes: panels toggled, on-screen keyboard, page zoom,
+// orientation change — all of them arrive as a size change on the containers
+if (window.ResizeObserver) {
+  const watcher = new ResizeObserver(scheduleRender);
+  watcher.observe(document.querySelector(".plots-card"));
+  watcher.observe(document.getElementById("track-card"));
 }
-window.addEventListener("resize", renderAll);
+window.addEventListener("resize", scheduleRender);
 window.addEventListener("pagehide", saveState);
-renderAll();
+COARSE.addEventListener("change", scheduleRender);   // marker size tracks touch / mouse

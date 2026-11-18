@@ -102,6 +102,7 @@ canvas { display: block; width: 100%; height: 100%; }
   color: var(--muted);
 }
 .t1-title b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.t1-reset { margin-left: auto; flex: none; }
 
 .readout-line {
   display: flex;
@@ -112,7 +113,14 @@ canvas { display: block; width: 100%; height: 100%; }
 }
 
 /* ---- scrubber under the timeline ---- */
-.scrub { display: flex; align-items: center; gap: 10px; padding: 6px 2px 2px; }
+.scrub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed var(--border);
+}
 .scrub input[type="range"] { flex: 1 1 auto; min-width: 0; }
 .scrub-range {
   flex: none;
@@ -120,31 +128,6 @@ canvas { display: block; width: 100%; height: 100%; }
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-
-/* ---- transport bar ---- */
-.transport {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 14px;
-  padding: 10px 0 12px;
-  margin-top: 4px;
-  border-top: 1px dashed var(--border);
-}
-.speed-lbl {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1 1 190px;
-  min-width: 0;
-  font-size: .85rem;
-  color: var(--muted);
-}
-.speed-lbl input[type="range"] { flex: 1 1 auto; min-width: 60px; max-width: 170px; }
-#out-speed { flex: none; min-width: 2.4em; color: var(--ink); font-variant-numeric: tabular-nums; }
-#btn-play { flex: 0 0 auto; min-width: 108px; }
-.kbd-hint { display: none; font-size: .75rem; color: var(--muted); }
-@media (hover: hover) and (min-width: 900px) { .kbd-hint { display: inline; } }
 
 /* ------------------------------------------------------------------ legend */
 .legend-objects { margin-bottom: 8px; }
@@ -168,6 +151,13 @@ canvas { display: block; width: 100%; height: 100%; }
   border-top: none;
   border-left: 2px dashed #8b93a7;
 }
+.lg-dot {
+  width: 9px;
+  height: 9px;
+  border-top: none;
+  border-radius: 50%;
+  background: #1c2333;
+}
 .lg-arrow { border-top-color: #3a4152; }
 
 /* ------------------------------------------------------------------- track */
@@ -176,7 +166,6 @@ canvas { display: block; width: 100%; height: 100%; }
 /* ---------------------------------------------------------------- controls */
 .param-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 .param-grid label,
-.speed-lbl,
 .chk { cursor: pointer; }
 .param-grid label {
   display: flex;
@@ -286,7 +275,6 @@ input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px;
   cursor: pointer;
   touch-action: manipulation;
 }
-.btn-lg { padding: 10px 18px; font-size: 1rem; }
 .btn-secondary { background: var(--muted); }
 .btn-ghost {
   background: transparent;
@@ -416,9 +404,6 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-of
   .intervals-table input { flex: 1 1 auto; }
   .stat-line { font-size: .78rem; }
 
-  /* transport bar: play button on its own row, full width */
-  .transport { gap: 8px 10px; }
-  #btn-play { flex: 1 1 100%; min-width: 0; }
   .scrub-range { display: none; }
 }
 

@@ -17,8 +17,8 @@ const MAX_OBJECTS = 4;
 const OBJ_NAMES = ["A", "B", "C", "D"];
 const COLORS = ["#0072B2", "#E69F00", "#009E73", "#D55E00"]; // Okabe-Ito
 const SUP = ["", "ᵃ", "ᵇ", "ᶜ", "ᵈ"];
-const INK = "#1c2333"; // t1 marker
-const GRAY = "#8b93a7"; // interval boundaries
+const INK = "#1c2333";   // timeline knob
+const GRAY = "#8b93a7"; // interval boundaries and t1, dashed verticals
 const MUTE = "#5b6478";
 const PANELS = ["x", "u", "a", "legend", "track"];
 const COARSE = window.matchMedia("(pointer: coarse)");
@@ -27,7 +27,6 @@ const COARSE = window.matchMedia("(pointer: coarse)");
 const DEFAULT_STATE = {
   t0: 0,
   t1: 5,
-  speed: 1,
   axisZero: true,
   show: { x: true, u: true, a: true, legend: false, track: false },
   objects: [
@@ -36,9 +35,7 @@ const DEFAULT_STATE = {
 };
 const defaultState = () => JSON.parse(JSON.stringify(DEFAULT_STATE));
 
-const state = Object.assign(defaultState(), {
-  playing: false,
-});
+const state = defaultState();
 
 // ---------------------------------------------------------------------------
 // Physics (per object)
@@ -228,11 +225,13 @@ function drawPlot(canvas, symbol, unit, series) {
   const y0 = axisAtBottom ? h - p.bottom : valueToY(0, vmin, vmax, h);
   drawAxes(ctx, w, h, symbol, unit, y0);
 
-  // vertical lines at the internal boundaries (union over all objects)
-  const bts = boundaryTimes();
+  // vertical dashed lines at the internal boundaries (union over all objects)
+  // plus one at t₁: the current time is drawn exactly like a boundary
+  const vlines = boundaryTimes();
+  if (!vlines.some((t) => Math.abs(t - state.t1) < 1e-6)) vlines.push(state.t1);
   ctx.strokeStyle = GRAY;
   ctx.setLineDash([5, 4]);
-  for (const bt of bts) {
+  for (const bt of vlines) {
     const bx = timeToX(bt, w);
     ctx.beginPath();
     ctx.moveTo(bx, 0);
@@ -343,15 +342,8 @@ function drawPlot(canvas, symbol, unit, series) {
     ctx.lineWidth = 1;
   }
 
-  // time marker t1: dark dashed line + one dot per object curve
+  // dots mark where t₁ meets each curve (the dashed vertical above is the line itself)
   const tx = xOf(state.t1);
-  ctx.strokeStyle = INK;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(tx, p.top);
-  ctx.lineTo(tx, h - p.bottom);
-  ctx.stroke();
-  ctx.setLineDash([]);
   for (const s of series) {
     ctx.fillStyle = s.color;
     ctx.beginPath();
@@ -900,8 +892,7 @@ function renderAll() {
   if (state.show.a) drawPlot(document.getElementById("plot-a"), "a", "m/s²", makeSeries("a"));
   if (state.show.track) drawTrack(document.getElementById("track"));
   updateReadouts();
-  // no point hammering localStorage 60 times a second while the animation runs
-  if (!state.playing) scheduleSave();
+  scheduleSave();
 }
 
 // repaint at most once per frame (resize / panel toggles arrive in bursts)
@@ -942,7 +933,6 @@ function serializeState() {
   return JSON.stringify({
     t0: state.t0,
     t1: state.t1,
-    speed: state.speed,
     axisZero: state.axisZero,
     show: state.show,
     objects: state.objects.map((o) => ({
@@ -968,7 +958,6 @@ function sanitizeState(s) {
   const out = {
     t0: isFinite(s.t0) ? s.t0 : 0,
     t1: isFinite(s.t1) ? s.t1 : 5,
-    speed: isFinite(s.speed) ? Math.max(0.25, Math.min(3, s.speed)) : 1,
     axisZero: s.axisZero !== false,
     show: {
       x: sh("x", true), u: sh("u", true), a: sh("a", true),
@@ -996,11 +985,8 @@ function applyState(s) {
   const clean = sanitizeState(s);
   if (!clean) return false;
   Object.assign(state, clean);
-  setPlaying(false);
   renumberObjects();
   t0El.value = numStr(clean.t0);
-  speedEl.value = clean.speed;
-  document.getElementById("out-speed").textContent = `${fmt(clean.speed, 1)}×`;
   document.getElementById("in-axis-zero").checked = clean.axisZero;
   PANELS.forEach((k) => { document.getElementById("show-" + k).checked = clean.show[k]; });
   applyVisibility();
@@ -1039,7 +1025,6 @@ function setT1(t, snap) {
 }
 
 timelineCanvas.addEventListener("pointerdown", (e) => {
-  setPlaying(false);                     // scrubbing always wins over the animation
   draggingT1 = true;
   timelineCanvas.setPointerCapture(e.pointerId);
   timelineCanvas.style.cursor = "grabbing";
@@ -1083,12 +1068,10 @@ timelineCanvas.addEventListener("keydown", (e) => {
     default: return;
   }
   e.preventDefault();
-  setPlaying(false);
   setT1(t, false);
 });
 
 t1Range.addEventListener("input", () => {
-  setPlaying(false);
   state.t1 = parseFloat(t1Range.value);
   renderAll();
 });
@@ -1109,15 +1092,6 @@ t0El.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); t0El.blur(); }   // closes the phone keypad
 });
 
-const speedEl = document.getElementById("in-speed");
-speedEl.addEventListener("input", () => {
-  const v = parseNum(speedEl.value);
-  if (!isFinite(v) || v <= 0) return;
-  state.speed = v;
-  document.getElementById("out-speed").textContent = `${fmt(v, 1)}×`;
-});
-speedEl.addEventListener("change", scheduleSave);
-
 document.getElementById("in-axis-zero").addEventListener("change", (e) => {
   state.axisZero = e.target.checked;
   renderAll();
@@ -1129,54 +1103,11 @@ PANELS.forEach((kind) => {
 });
 
 // ---------------------------------------------------------------------------
-// Animation
+// Back to the start
 // ---------------------------------------------------------------------------
-let rafId = null;
-let lastTs = null;
-
-function tick(ts) {
-  if (lastTs === null) lastTs = ts;
-  const dt = ((ts - lastTs) / 1000) * state.speed;
-  lastTs = ts;
-  state.t1 += dt;
-  if (state.t1 >= tEnd()) state.t1 = state.t0; // loop
-  renderAll();
-  if (state.playing) rafId = requestAnimationFrame(tick);
-}
-
-const playBtn = document.getElementById("btn-play");
-
-function setPlaying(on) {
-  if (on === state.playing) return;
-  state.playing = on;
-  playBtn.textContent = on ? "Pause" : "▶ Play";
-  playBtn.setAttribute("aria-pressed", String(on));
-  if (on) {
-    if (state.t1 >= tEnd() - 1e-9) state.t1 = state.t0;
-    lastTs = null;
-    rafId = requestAnimationFrame(tick);
-  } else {
-    cancelAnimationFrame(rafId);
-    lastTs = null;
-    scheduleSave();
-  }
-}
-
-playBtn.addEventListener("click", () => setPlaying(!state.playing));
-
 document.getElementById("btn-reset").addEventListener("click", () => {
-  setPlaying(false);
   state.t1 = state.t0;
   renderAll();
-});
-
-// Space plays/pauses, unless the user is typing into a form control
-window.addEventListener("keydown", (e) => {
-  if (e.code !== "Space" || e.repeat) return;
-  const el = e.target;
-  if (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(el.tagName)) return;
-  e.preventDefault();
-  setPlaying(!state.playing);
 });
 
 // ---------------------------------------------------------------------------
@@ -1231,7 +1162,6 @@ document.getElementById("btn-import").addEventListener("click", () => {
 document.getElementById("btn-clear").addEventListener("click", () => {
   if (!confirm("Discard this scenario and go back to the default one?")) return;
   try { localStorage.removeItem(LS_KEY); } catch (e) { /* nothing stored */ }
-  setPlaying(false);
   codeOut.value = "";
   codeIn.value = "";
   applyState(defaultState());

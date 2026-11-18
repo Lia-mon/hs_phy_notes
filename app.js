@@ -1096,6 +1096,7 @@ function applyState(s) {
 // ---------------------------------------------------------------------------
 const timelineCanvas = document.getElementById("timeline");
 let draggingT1 = false;
+let touchDown = null;   // where a finger landed, until we know what it wants
 
 // landing close to t₀, an interval boundary or t_end snaps exactly onto it
 function snapTime(t) {
@@ -1120,14 +1121,28 @@ function setT1(t, snap) {
 }
 
 timelineCanvas.addEventListener("pointerdown", (e) => {
+  if (e.pointerType === "touch") {
+    // A finger on the canvas may just be swiping the page up or down (vertical
+    // panning is allowed there), so nothing changes yet. Sideways travel starts
+    // a drag, a tap commits on lift-off, and a page scroll cancels both.
+    touchDown = { x: e.clientX, y: e.clientY };
+    return;
+  }
   draggingT1 = true;
   timelineCanvas.setPointerCapture(e.pointerId);
   timelineCanvas.style.cursor = "grabbing";
-  setT1(timeAtClientX(e.clientX), true);  // a tap moves the marker too, not only a drag
+  setT1(timeAtClientX(e.clientX), true);  // a click moves the marker too, not only a drag
   e.preventDefault();
 });
 
 timelineCanvas.addEventListener("pointermove", (e) => {
+  if (!draggingT1 && touchDown && e.pointerType === "touch") {
+    const dx = e.clientX - touchDown.x, dy = e.clientY - touchDown.y;
+    if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;   // still undecided
+    draggingT1 = true;
+    timelineCanvas.setPointerCapture(e.pointerId);
+    timelineCanvas.style.cursor = "grabbing";
+  }
   if (draggingT1) {
     setT1(timeAtClientX(e.clientX), true);
   } else if (e.pointerType === "mouse") {
@@ -1137,7 +1152,14 @@ timelineCanvas.addEventListener("pointermove", (e) => {
   }
 });
 
-function endDrag() {
+function endDrag(e) {
+  if (!draggingT1 && touchDown && e.type === "pointerup" && e.pointerType === "touch") {
+    setT1(timeAtClientX(e.clientX), true);   // it was a tap: move the marker there
+    touchDown = null;
+    scheduleSave();
+  } else {
+    touchDown = null;
+  }
   if (!draggingT1) return;
   draggingT1 = false;
   timelineCanvas.style.cursor = "default";
@@ -1164,6 +1186,7 @@ timelineCanvas.addEventListener("keydown", (e) => {
   }
   e.preventDefault();
   setT1(t, false);
+  scheduleSave();   // keyboard moves are kept like dragged ones
 });
 
 // ---------------------------------------------------------------------------

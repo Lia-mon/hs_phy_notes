@@ -351,7 +351,7 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
   .intervals-table, .intervals-table tbody, .intervals-table tr, .intervals-table td { display: block; width: 100%; }
   .intervals-table tr {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 6px 10px;
     align-items: center;
     padding: 8px 0;
@@ -375,12 +375,19 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
   .intervals-table td.f-x  { grid-row: 2; grid-column: 2; }
   .intervals-table td.f-v  { grid-row: 3; grid-column: 1; }
   .intervals-table td.f-a  { grid-row: 3; grid-column: 2; }
+  /* the hint goes on its own line, so the disabled input keeps the same
+     width as the editable inputs beside it (\2192 = → ; CSS has no \uXXXX) */
+  .intervals-table td.locked { flex-wrap: wrap; }
   .intervals-table td.locked::after {
-    content: "\u2192 fixed";
+    content: "\2192 fixed";
+    flex: 1 1 100%;     /* always its own line; shrink 1 so the margin cannot overflow */
+    margin-left: 66px;   /* label (58px) + gap (8px): lines up under the input */
     font-size: .68rem;
     color: var(--muted);
   }
-  .intervals-table input { flex: 1 1 auto; }
+  /* basis 0, so every field is exactly "cell minus label": the disabled one is
+     the same width as its neighbours and never pushes itself onto its own line */
+  .intervals-table input { flex: 1 1 0; min-width: 0; }
   .stat-line { font-size: .78rem; }
 }
 

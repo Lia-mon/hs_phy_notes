@@ -169,8 +169,12 @@ function drawAxes(ctx, w, h, symbol, unit, y0) {
   ctx.lineTo(w - p.right + 6, y0);
   ctx.stroke();
   arrowHead(ctx, w - p.right + 6, y0, 0);
+  // the letter sits in the right margin above the axis - right aligned so it
+  // never gets cut off by the edge of the canvas
+  ctx.textAlign = "right";
   ctx.font = "italic 14px Georgia, serif";
-  ctx.fillText("t", w - p.right + 10, y0 + 4);
+  ctx.fillText("t", w - 2, Math.max(p.top + 11, y0 - 8));
+  ctx.textAlign = "start";
 
   // value axis (vertical, full plot height, from bottom up)
   ctx.beginPath();
@@ -256,7 +260,8 @@ function drawPlot(canvas, symbol, unit, series) {
   series.forEach((s) => specials.push(...s.specials));
   if (specials.length) {
     const ordered = [...specials].sort((p, q) => p.v - q.v);
-    const axisNumYs = [], nameYs = [];
+    // the symbol and unit rows above the value axis are off limits to numbers
+    const axisNumYs = [p.top + 5, p.top + 19], nameYs = [];
     for (const sp of ordered) {
       if (sp.v === null || Math.abs(sp.v) <= 1e-9 || sp.v <= vmin || sp.v >= vmax) continue;
       const py = valueToY(sp.v, vmin, vmax, h);
@@ -275,9 +280,12 @@ function drawPlot(canvas, symbol, unit, series) {
       ctx.moveTo(p.left - 4, py);
       ctx.lineTo(p.left, py);
       ctx.stroke();
-      // numeric value on the y-axis (skip if it would overlap another one)
-      const ny = py + 4;
-      if (!axisNumYs.some((y) => Math.abs(y - ny) < 13)) {
+      // numeric value on the y-axis: slide it a little off the line when the
+      // slot there is taken (by another value or by the unit above), and only
+      // leave it out when nothing fits
+      const taken = (y) => axisNumYs.some((n) => Math.abs(n - y) < 13);
+      const ny = [py + 4, py + 16, py - 8].find((y) => !taken(y));
+      if (ny !== undefined) {
         ctx.fillStyle = "#3a4152";
         ctx.font = "11px sans-serif";
         ctx.textAlign = "right";
@@ -285,17 +293,21 @@ function drawPlot(canvas, symbol, unit, series) {
         ctx.textAlign = "start";
         axisNumYs.push(ny);
       }
-      // italic name at the right edge (flips below the line if crowded)
-      let ly = py - 5;
-      if (nameYs.some((y) => Math.abs(y - ly) < 13)) ly = py + 14;
-      if (!nameYs.some((y) => Math.abs(y - ly) < 13)) {
-        ctx.fillStyle = sp.color;
-        ctx.font = "italic 12px Georgia, serif";
-        ctx.textAlign = "right";
-        ctx.fillText(sp.label, w - p.right - 2, ly);
-        ctx.textAlign = "start";
-        nameYs.push(ly);
-      }
+      // italic name at the right edge. Slots sit on one shared 13px ladder, so
+      // labels of different lines can never land on each other: pick the slot
+      // nearest the line that nobody has claimed yet.
+      const step = 13, lo = p.top + 11, hi = h - 6;
+      const target = py - 5;
+      const ladder = [];
+      for (let y = lo + (((target - lo) % step) + step) % step; y <= hi; y += step) ladder.push(y);
+      ladder.sort((a, b) => Math.abs(a - target) - Math.abs(b - target));
+      const ly = ladder.find((y) => !nameYs.some((n) => Math.abs(n - y) < step)) ?? target;
+      nameYs.push(ly);
+      ctx.fillStyle = sp.color;
+      ctx.font = "italic 12px Georgia, serif";
+      ctx.textAlign = "right";
+      ctx.fillText(sp.label, w - p.right - 2, ly);
+      ctx.textAlign = "start";
     }
   }
 

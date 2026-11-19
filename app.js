@@ -20,7 +20,7 @@ const SUP = ["", "ᵃ", "ᵇ", "ᶜ", "ᵈ"];
 const INK = "#1c2333";   // timeline knob
 const GRAY = "#8b93a7"; // interval boundaries and t1, dashed verticals
 const MUTE = "#5b6478";
-const PANELS = ["x", "u", "a", "track"];
+const PANELS = ["x", "u", "a"];
 const COARSE = window.matchMedia("(pointer: coarse)");
 
 // the scenario the app falls back to (and what "Reset everything" restores)
@@ -28,7 +28,7 @@ const DEFAULT_STATE = {
   t0: 0,
   t1: 5,
   axisZero: true,
-  show: { x: true, u: true, a: true, track: false },
+  show: { x: true, u: true, a: true },
   objects: [
     { name: "Α", intervals: [{ dt: 5, x: 0, v: 4, a: 0 }, { dt: 5, x: 0, v: 4, a: 0 }] },
   ],
@@ -505,99 +505,6 @@ function drawTimeline(canvas) {
 }
 
 // ---------------------------------------------------------------------------
-// Track (real movement on a line)
-// ---------------------------------------------------------------------------
-function drawTrack(canvas) {
-  const { ctx, w, h } = setupCanvas(canvas);
-  ctx.clearRect(0, 0, w, h);
-
-  const midY = h / 2;
-  const margin = 40;
-
-  // x-range over all objects and the whole time span
-  let xmin = Infinity, xmax = -Infinity;
-  for (const obj of state.objects) {
-    for (let i = 0; i <= 100; i++) {
-      const t = state.t0 + ((objTEnd(obj) - state.t0) * i) / 100;
-      const x = kinematics(obj, t).x;
-      xmin = Math.min(xmin, x);
-      xmax = Math.max(xmax, x);
-    }
-  }
-  if (xmax - xmin < 1e-9) { xmin -= 1; xmax += 1; }
-  const pad = (xmax - xmin) * 0.08;
-  xmin -= pad; xmax += pad;
-
-  const xToPx = (x) => margin + ((x - xmin) / (xmax - xmin)) * (w - 2 * margin);
-
-  // track line
-  ctx.strokeStyle = "#3a4152";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(margin - 14, midY);
-  ctx.lineTo(w - margin + 14, midY);
-  ctx.stroke();
-  ctx.lineWidth = 1;
-
-  // origins x0 (label only the first one)
-  ctx.fillStyle = "#aab1c2";
-  state.objects.forEach((obj, i) => {
-    ctx.beginPath();
-    ctx.arc(xToPx(obj.intervals[0].x), midY, 4, 0, Math.PI * 2);
-    ctx.fill();
-    if (i === 0) {
-      ctx.fillStyle = "#6b7280";
-      ctx.font = "12px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("x₀", xToPx(obj.intervals[0].x), midY + 22);
-      ctx.textAlign = "start";
-      ctx.fillStyle = "#aab1c2";
-    }
-  });
-
-  const multi = state.objects.length > 1;
-  state.objects.forEach((obj, i) => {
-    const cur = kinematics(obj, state.t1);
-    const px = xToPx(cur.x);
-
-    // velocity arrow
-    const vLen = Math.max(-70, Math.min(70, cur.u * 6));
-    if (Math.abs(vLen) > 4) {
-      ctx.strokeStyle = "#3a4152";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(px, midY - 18);
-      ctx.lineTo(px + vLen, midY - 18);
-      ctx.stroke();
-      arrowHead(ctx, px + vLen, midY - 18, vLen > 0 ? 0 : Math.PI);
-      ctx.lineWidth = 1;
-    }
-
-    // dot
-    ctx.fillStyle = COLORS[i];
-    ctx.beginPath();
-    ctx.arc(px, midY, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.lineWidth = 1;
-
-    // labels
-    ctx.fillStyle = INK;
-    ctx.font = "13px sans-serif";
-    ctx.textAlign = "center";
-    if (multi) {
-      ctx.fillText(`${obj.name}: x = ${fmt(cur.x)} m · u = ${fmt(cur.u)} m/s`, px, midY - 26 - i * 15);
-    } else {
-      ctx.fillText(`x = ${fmt(cur.x)} m`, px, midY - 26);
-      ctx.fillText(`u = ${fmt(cur.u)} m/s`, px, midY + 26);
-    }
-    ctx.textAlign = "start";
-  });
-}
-
-// ---------------------------------------------------------------------------
 // Readouts
 // ---------------------------------------------------------------------------
 // Widest string fmt() could ever show for a value that keeps changing: a minus
@@ -988,7 +895,6 @@ function renderAll() {
   if (state.show.x) drawPlot(document.getElementById("plot-x"), "x", "m", makeSeries("x"));
   if (state.show.u) drawPlot(document.getElementById("plot-u"), "u", "m/s", makeSeries("u"));
   if (state.show.a) drawPlot(document.getElementById("plot-a"), "a", "m/s²", makeSeries("a"));
-  if (state.show.track) drawTrack(document.getElementById("track"));
   updateReadouts();
   scheduleSave();
 }
@@ -1008,8 +914,7 @@ function scheduleRender() {
 // Panel visibility
 // ---------------------------------------------------------------------------
 function panelEl(kind) {
-  return kind === "track" ? document.getElementById("track-card")
-    : document.getElementById("row-" + kind);
+  return document.getElementById("row-" + kind);
 }
 function applyVisibility() {
   PANELS.forEach((k) => { panelEl(k).style.display = state.show[k] ? "" : "none"; });
@@ -1057,7 +962,7 @@ function sanitizeState(s) {
     t1: isFinite(s.t1) ? s.t1 : 5,
     axisZero: s.axisZero !== false,
     show: {
-      x: sh("x", true), u: sh("u", true), a: sh("a", true), track: sh("track", false),
+      x: sh("x", true), u: sh("u", true), a: sh("a", true),
     },
     objects: [],
   };
@@ -1295,7 +1200,6 @@ if (!restored) applyState(defaultState());
 if (window.ResizeObserver) {
   const watcher = new ResizeObserver(scheduleRender);
   watcher.observe(document.querySelector(".plots-card"));
-  watcher.observe(document.getElementById("track-card"));
 }
 window.addEventListener("resize", scheduleRender);
 window.addEventListener("pagehide", saveState);

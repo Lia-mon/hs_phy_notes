@@ -113,9 +113,6 @@ canvas { display: block; width: 100%; height: 100%; }
   font-variant-numeric: tabular-nums;
 }
 
-/* ------------------------------------------------------------------- track */
-.track-card canvas { height: 150px; }
-
 /* ---------------------------------------------------------------- controls */
 .param-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 .param-grid label,
@@ -304,7 +301,6 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
   .intervals-table input { min-height: 44px; font-size: 16px; }   /* 16px stops iOS zoom-on-focus */
   input[type="text"], input[type="number"] { min-height: 44px; font-size: 16px; }
   textarea { font-size: 16px; }
-  .track-card canvas { height: 170px; }
 }
 
 /* ------------------------------------ squeezed two-column width (~1 inch less

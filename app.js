@@ -14,7 +14,7 @@
 const MIN_DT = 0.5;
 const MAX_INTERVALS = 8;
 const MAX_OBJECTS = 4;
-const OBJ_NAMES = ["A", "B", "C", "D"];
+const OBJ_NAMES = ["Α", "Β", "Γ", "Δ"];
 const COLORS = ["#0072B2", "#E69F00", "#009E73", "#D55E00"]; // Okabe-Ito
 const SUP = ["", "ᵃ", "ᵇ", "ᶜ", "ᵈ"];
 const INK = "#1c2333";   // timeline knob
@@ -30,7 +30,7 @@ const DEFAULT_STATE = {
   axisZero: true,
   show: { x: true, u: true, a: true, track: false },
   objects: [
-    { name: "A", intervals: [{ dt: 5, x: 0, v: 4, a: 0 }, { dt: 5, x: 0, v: 4, a: 0 }] },
+    { name: "Α", intervals: [{ dt: 5, x: 0, v: 4, a: 0 }, { dt: 5, x: 0, v: 4, a: 0 }] },
   ],
 };
 const defaultState = () => JSON.parse(JSON.stringify(DEFAULT_STATE));
@@ -667,7 +667,7 @@ function stabiliseTitle() {
   const sig = [state.t0, state.objects.map(objDuration).join(",")].join("|");
   if (sig === titleSig) return;
   titleSig = sig;
-  const w = probeBox("t1-title", `At time t₁ — <b>${widestTime()}</b>`).width;
+  const w = probeBox("t1-title", `Στη στιγμή t₁ — <b>${widestTime()}</b>`).width;
   document.querySelector(".t1-title").style.minWidth = `${Math.ceil(w)}px`;
 }
 
@@ -683,7 +683,7 @@ function readoutReserve(el) {
   if (sig === wrapSig) return wrapHeights;
   wrapSig = sig;
   // one line of the same markup gives the line height, then the widest text
-  const lineHeight = probeBox("readout-line", `<span class="chip"></span><b>A</b> x = 0 m`, avail).height;
+  const lineHeight = probeBox("readout-line", `<span class="chip"></span><b>Α</b> x = 0 m`, avail).height;
   wrapHeights = state.objects.map((obj) => {
     const w = widestStrings(obj);
     const h = probeBox(
@@ -782,11 +782,11 @@ function buildIntervalsTable(table, obj) {
       input.autocomplete = "off";
       input.spellcheck = false;
       input.title = f.label;
-      input.setAttribute("aria-label", `Object ${obj.name}, interval ${i + 1}: ${f.label}`);
+      input.setAttribute("aria-label", `Σώμα ${obj.name}, διάστημα ${i + 1}: ${f.label}`);
       input.value = numStr(iv[f.key]);
       if (i > 0 && f.key === "x") {
         input.disabled = true; // fixed by continuity
-        input.title = "Fixed by continuity with the previous interval";
+        input.title = "Σταθερό από συνέχεια με το προηγούμενο διάστημα";
         td.classList.add("locked");
       } else {
         input.addEventListener("change", () => {
@@ -809,8 +809,8 @@ function buildIntervalsTable(table, obj) {
     btn.className = "btn-remove";
     btn.textContent = "✕";
     btn.disabled = obj.intervals.length <= 1;
-    btn.title = "Remove interval";
-    btn.setAttribute("aria-label", `Remove interval ${i + 1} of object ${obj.name}`);
+    btn.title = "Αφαίρεση διαστήματος";
+    btn.setAttribute("aria-label", `Αφαίρεση διαστήματος ${i + 1} του σώματος ${obj.name}`);
     btn.addEventListener("click", () => {
       obj.intervals.splice(i, 1);
       propagateIntervals(obj);
@@ -847,12 +847,12 @@ function buildObjectsUI() {
 
     const head = document.createElement("div");
     head.className = "object-head";
-    head.innerHTML = `<span class="chip" style="background:${COLORS[oi]}"></span><b>Object ${obj.name}</b>`;
+    head.innerHTML = `<span class="chip" style="background:${COLORS[oi]}"></span><b>Σώμα ${obj.name}</b>`;
     const del = document.createElement("button");
     del.className = "btn-remove";
     del.textContent = "✕";
-    del.title = "Remove object";
-    del.setAttribute("aria-label", `Remove object ${obj.name}`);
+    del.title = "Αφαίρεση σώματος";
+    del.setAttribute("aria-label", `Αφαίρεση σώματος ${obj.name}`);
     del.disabled = state.objects.length <= 1;
     del.addEventListener("click", () => {
       state.objects.splice(oi, 1);
@@ -870,9 +870,9 @@ function buildObjectsUI() {
 
     const addBtn = document.createElement("button");
     addBtn.className = "btn btn-primary btn-sm";
-    addBtn.textContent = "+ Add interval";
+    addBtn.textContent = "+ Προσθήκη διαστήματος";
     addBtn.disabled = obj.intervals.length >= MAX_INTERVALS;
-    addBtn.title = obj.intervals.length >= MAX_INTERVALS ? `Up to ${MAX_INTERVALS} intervals per object` : "";
+    addBtn.title = obj.intervals.length >= MAX_INTERVALS ? `Το πολύ ${MAX_INTERVALS} διαστήματα ανά σώμα` : "";
     addBtn.addEventListener("click", () => {
       if (obj.intervals.length >= MAX_INTERVALS) return;
       // start the new interval at the previous interval's final velocity,
@@ -895,7 +895,7 @@ function buildObjectsUI() {
   const addObj = document.getElementById("btn-add-object");
   const full = state.objects.length >= MAX_OBJECTS;
   addObj.disabled = full;
-  addObj.title = full ? `Up to ${MAX_OBJECTS} objects` : "";
+  addObj.title = full ? `Το πολύ ${MAX_OBJECTS} σώματα` : "";
 }
 
 function onIntervalChange(obj, i, key, val) {
@@ -1259,25 +1259,25 @@ document.getElementById("btn-export").addEventListener("click", async () => {
   } catch (e) {
     codeOut.select(); // clipboard blocked: the code is selected, copy it by hand
   }
-  toast(copied ? "Scenario code copied ✓" : "Code ready — select it and copy");
+  toast(copied ? "Αντιγραφή κωδικού σεναρίου ✓" : "Έτοιμο το κωδικό — επιλέξτε και αντιγράψτε");
 });
 
 document.getElementById("btn-import").addEventListener("click", () => {
   const code = codeIn.value.trim();
-  if (!code) { toast("Paste a scenario code first"); return; }
+  if (!code) { toast("Βάλε πρώτα κωδικό σεναρίου"); return; }
   let ok = false;
   try { ok = applyState(JSON.parse(decodeCode(code))); } catch (e) { ok = false; }
-  if (ok) { codeIn.value = ""; toast("Scenario imported"); }
-  else toast("That is not a valid scenario code");
+  if (ok) { codeIn.value = ""; toast("Εισαγωγή σεναρίου"); }
+  else toast("Δεν είναι έγκυρος κωδικός σεναρίου");
 });
 
 document.getElementById("btn-clear").addEventListener("click", () => {
-  if (!confirm("Discard this scenario and go back to the default one?")) return;
+  if (!confirm("Απορρίπτεις αυτό το σενάριο και επιστρέφεις στο προεπιλεγμένο;")) return;
   try { localStorage.removeItem(LS_KEY); } catch (e) { /* nothing stored */ }
   codeOut.value = "";
   codeIn.value = "";
   applyState(defaultState());
-  toast("Default scenario restored");
+  toast("Επαναφορά στο προεπιλεγμένο σενάριο");
 });
 
 // ---------------------------------------------------------------------------

@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="el">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#f4f6fa" />
-  <meta name="description" content="Interactive high-school physics lab: piecewise linear motion with linked x(t), u(t) and a(t) plots." />
-  <title>Linear Motion Lab</title>
+  <meta name="description" content="Διαδραστικό σχολικό εργαστήριο φυσικής: τμηματική ομαλή κίνηση με συνδεδεμένους γράφους x(t), u(t) και a(t)." />
+  <title>Γράφοι Κινεματικής</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%230072B2'/%3E%3Cpath%20d='M4%2024C12%2024%2012%208%2028%208'%20stroke='white'%20stroke-width='3'%20fill='none'/%3E%3Ccircle%20cx='28'%20cy='8'%20r='3'%20fill='white'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -14,35 +14,35 @@
   <main>
     <!-- Left column: plots and track -->
     <div class="left-col">
-      <section class="plots-card card" aria-label="Motion plots">
+      <section class="plots-card card" aria-label="Γράφοι κίνησης">
         <div class="t1-bar">
-          <span class="t1-title">At time t₁ — <b id="out-t1">5 s</b></span>
+          <span class="t1-title">Στη στιγμή t₁ — <b id="out-t1">5 s</b></span>
           <div id="readouts"></div>
-          <button id="btn-reset" class="btn btn-ghost btn-sm t1-reset" title="Move t₁ back to t₀">Back to t₀</button>
+          <button id="btn-reset" class="btn btn-ghost btn-sm t1-reset" title="Μετάβαση του t₁ στο t₀">Επιστροφή στο t₀</button>
         </div>
 
         <!-- Timeline: the one and only way to move t₁ (drag, or focus + arrow keys) -->
         <div class="timeline-row">
           <canvas id="timeline" class="timeline" role="slider" tabindex="0"
-                  aria-label="Current time t₁ — drag horizontally, or use the arrow keys"></canvas>
+                  aria-label="Τρέχων χρόνος t₁ — σύρετε οριζόντια ή χρησιμοποιήστε τα βέλη"></canvas>
         </div>
 
-        <div class="plot-row" id="row-x"><canvas id="plot-x" role="img" aria-label="Position plot x of t"></canvas></div>
-        <div class="plot-row" id="row-u"><canvas id="plot-u" role="img" aria-label="Velocity plot u of t"></canvas></div>
-        <div class="plot-row" id="row-a"><canvas id="plot-a" role="img" aria-label="Acceleration plot a of t"></canvas></div>
+        <div class="plot-row" id="row-x"><canvas id="plot-x" role="img" aria-label="Γράφος θέσης x ως προς t"></canvas></div>
+        <div class="plot-row" id="row-u"><canvas id="plot-u" role="img" aria-label="Γράφος ταχύτητας u ως προς t"></canvas></div>
+        <div class="plot-row" id="row-a"><canvas id="plot-a" role="img" aria-label="Γράφος επιτάχυνσης a ως προς t"></canvas></div>
       </section>
 
       <!-- Track (real movement on a line) -->
-      <section class="card track-card" id="track-card" aria-label="Real movement on a line">
-        <h2>Real movement on a line</h2>
-        <canvas id="track" role="img" aria-label="Objects moving on a straight line"></canvas>
+      <section class="card track-card" id="track-card" aria-label="Κίνηση σε ευθεία">
+        <h2>Κίνηση σε ευθεία</h2>
+        <canvas id="track" role="img" aria-label="Σώματα που κινούνται σε ευθεία"></canvas>
       </section>
     </div>
 
     <!-- Right column: controls -->
-    <aside class="controls" aria-label="Controls">
+    <aside class="controls" aria-label="Ελεγχος">
       <div class="card">
-        <h2>Global</h2>
+        <h2>Γενικά</h2>
         <div class="param-grid">
           <label>t₀ (s)
             <input id="in-t0" type="text" value="0" inputmode="decimal" autocomplete="off" spellcheck="false" />
@@ -51,32 +51,32 @@
       </div>
 
       <div class="card">
-        <h2>Objects</h2>
+        <h2>Σώματα</h2>
         <div id="objects-container"></div>
-        <button id="btn-add-object" class="btn btn-primary">+ Add object</button>
+        <button id="btn-add-object" class="btn btn-primary">+ Προσθήκη σώματος</button>
       </div>
 
       <div class="card">
-        <h2>Display</h2>
+        <h2>Εμφάνιση</h2>
         <div class="chk-row">
           <label class="chk"><input type="checkbox" id="show-x" checked /> x(t)</label>
           <label class="chk"><input type="checkbox" id="show-u" checked /> u(t)</label>
           <label class="chk"><input type="checkbox" id="show-a" checked /> a(t)</label>
         </div>
         <div class="chk-row">
-          <label class="chk"><input type="checkbox" id="show-track" /> Real movement on a line</label>
+          <label class="chk"><input type="checkbox" id="show-track" /> Κίνηση σε ευθεία</label>
         </div>
-        <label class="chk"><input type="checkbox" id="in-axis-zero" checked /> Draw t-axis at y = 0</label>
+        <label class="chk"><input type="checkbox" id="in-axis-zero" checked /> Άξονας t στο y = 0</label>
       </div>
 
       <div class="card">
-        <h2>Share</h2>
-        <p class="note">The scenario is saved automatically in this browser. Export a code to share it, or paste one below to import it.</p>
-        <button id="btn-export" class="btn btn-primary">Export code</button>
-        <textarea id="out-code" readonly rows="2" placeholder="…" aria-label="Scenario code to share"></textarea>
-        <textarea id="in-code" rows="2" placeholder="Paste a scenario code…" aria-label="Scenario code to import"></textarea>
-        <button id="btn-import" class="btn btn-secondary">Import</button>
-        <button id="btn-clear" class="btn btn-ghost">Reset everything to the default scenario</button>
+        <h2>Κοινοποίηση</h2>
+        <p class="note">Το σενάριο αποθηκεύεται αυτόματα σε αυτόν τον περιηγητή. Εξαγάγετε έναν κωδικό για κοινοποίηση ή επικολλήστε έναν παρακάτω για εισαγωγή.</p>
+        <button id="btn-export" class="btn btn-primary">Εξαγωγή κωδικού</button>
+        <textarea id="out-code" readonly rows="2" placeholder="…" aria-label="Κωδικός σεναρίου για κοινοποίηση"></textarea>
+        <textarea id="in-code" rows="2" placeholder="Κωδικός σεναρίου…" aria-label="Κωδικός σεναρίου για εισαγωγή"></textarea>
+        <button id="btn-import" class="btn btn-secondary">Εισαγωγή</button>
+        <button id="btn-clear" class="btn btn-ghost">Επαναφορά στο προεπιλεγμένο σενάριο</button>
       </div>
     </aside>
   </main>

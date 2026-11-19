@@ -379,7 +379,7 @@ textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3
      width as the editable inputs beside it (\2192 = → ; CSS has no \uXXXX) */
   .intervals-table td.locked { flex-wrap: wrap; }
   .intervals-table td.locked::after {
-    content: "\2192 fixed";
+    content: "\2192 σταθερό";
     flex: 1 1 100%;     /* always its own line; shrink 1 so the margin cannot overflow */
     margin-left: 66px;   /* label (58px) + gap (8px): lines up under the input */
     font-size: .68rem;

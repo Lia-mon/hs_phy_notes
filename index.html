@@ -11,11 +11,6 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>Linear Motion Lab</h1>
-    <p class="subtitle">Constant velocity &amp; constant acceleration — shape the intervals, then drag the t₁ marker.</p>
-  </header>
-
   <main>
     <!-- Left column: plots and track -->
     <div class="left-col">
@@ -53,12 +48,10 @@
             <input id="in-t0" type="text" value="0" inputmode="decimal" autocomplete="off" spellcheck="false" />
           </label>
         </div>
-        <p class="note">t₀ shifts the whole scenario in time. The current time t₁ is set by dragging the black marker on the timeline; focus the timeline and use the arrow keys to nudge it precisely.</p>
       </div>
 
       <div class="card">
         <h2>Objects</h2>
-        <p class="note">Each object has its own studied intervals (Δt, x, v, a; a = 0 gives constant velocity). The initial x of every interval after the first is fixed by continuity with the previous one; the velocity v may change abruptly at a boundary.</p>
         <div id="objects-container"></div>
         <button id="btn-add-object" class="btn btn-primary">+ Add object</button>
       </div>
